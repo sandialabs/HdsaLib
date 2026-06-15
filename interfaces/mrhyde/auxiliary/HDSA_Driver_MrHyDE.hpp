@@ -201,6 +201,7 @@ public:
     bool execute_prior_discrepancy_sampling = HDSAsettings.sublist("Configuration").get<bool>("execute_prior_discrepancy_sampling", false);
     bool execute_posterior_discrepancy_sampling = HDSAsettings.sublist("Configuration").get<bool>("execute_posterior_discrepancy_sampling", false);
     bool execute_optimal_solution_update = HDSAsettings.sublist("Configuration").get<bool>("execute_optimal_solution_update", false);
+    bool use_continuation = HDSAsettings.sublist("Configuration").get<bool>("use_continuation", false);
 
     std::string prior_computation = HDSAsettings.sublist("Prior Computation").get<std::string>("State Prior", "Numeric_Laplacian");
     bool use_direct_solvers = HDSAsettings.sublist("Prior Computation").get<bool>("use_direct_solvers", false);
@@ -662,7 +663,12 @@ public:
         output_writer->Write_Hessian_Eigenvalues(evals);
       }
 
-      HDSA::Ptr<HDSA::MD_Update<ScalarT>> update = HDSA::makePtr<HDSA::MD_Update<ScalarT>>(data_interface, u_prior_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis);
+      if (use_continuation) {
+        HDSA::Ptr<HDSA::MD_Continuation_Update<ScalarT>> update = HDSA::makePtr<HDSA::MD_Continuation_Update<ScalarT>>(data_interface, u_prior_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis);
+      } else {
+        HDSA::Ptr<HDSA::MD_Update<ScalarT>> update = HDSA::makePtr<HDSA::MD_Update<ScalarT>>(data_interface, u_prior_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis);
+      }
+
       if (num_posterior_samples > 0)
       {
         if (hdsa_verbosity > 1)
