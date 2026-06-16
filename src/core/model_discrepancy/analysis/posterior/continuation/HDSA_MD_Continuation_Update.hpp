@@ -18,8 +18,8 @@ private:
   HDSA::Ptr<HDSA::MD_Opt_Prob_Interface<RealT>> opt_prob_interface_;
   HDSA::Ptr<HDSA::MD_Posterior_Sampling<RealT>> post_sampling_;
   HDSA::Ptr<HDSA::MD_Hessian_Analysis<RealT>> hessian_analysis_;
-  HDSA::Ptr<HDSA::Vector<RealT>> state_grad_;
-  RealT state_grad_W_u_inv_state_grad_;
+  int num_continuation_steps_;
+  int r_;
 
 public:
   MD_Continuation_Update(
@@ -28,18 +28,13 @@ public:
       const HDSA::Ptr<HDSA::MD_z_Prior_Interface<RealT>> &z_prior_interface,
       const HDSA::Ptr<HDSA::MD_Opt_Prob_Interface<RealT>> &opt_prob_interface,
       const HDSA::Ptr<HDSA::MD_Posterior_Sampling<RealT>> &post_sampling,
-      const HDSA::Ptr<HDSA::MD_Hessian_Analysis<RealT>> &hessian_analysis)
+      const HDSA::Ptr<HDSA::MD_Hessian_Analysis<RealT>> &hessian_analysis,
+      int num_continuation_steps)
       : data_interface_(data_interface), u_prior_interface_(u_prior_interface),
         z_prior_interface_(z_prior_interface),
         opt_prob_interface_(opt_prob_interface), post_sampling_(post_sampling),
-        hessian_analysis_(hessian_analysis) {
-    state_grad_ = data_interface_->Get_u_opt()->Clone();
-    opt_prob_interface_->Misfit_Gradient(*state_grad_,
-                                         *data_interface_->Get_u_opt(),
-                                         *data_interface_->Get_z_opt());
-    HDSA::Ptr<HDSA::Vector<RealT>> u_tmp = state_grad_->Clone();
-    u_prior_interface_->Apply_W_u_Inverse(*u_tmp, *state_grad_);
-    state_grad_W_u_inv_state_grad_ = u_tmp->Dot(*state_grad_);
+        hessian_analysis_(hessian_analysis), num_continuation_steps_(num_continuation_steps) {
+          r_ = hessian_analysis_->Get_Evals()->Number_of_Rows(); // TODO: Check whether number of rows or columns. 
   }
 
   ~MD_Continuation_Update(void) {}
