@@ -44,6 +44,31 @@ namespace HDSA
       return evals_;
     }
 
+    HDSA::Ptr<HDSA::MD_Opt_Prob_Interface<RealT>> Get_Opt_Prob_Interface(void) const
+    {
+      return opt_prob_interface_;
+    }
+    
+    // New
+    void Apply_V(HDSA::Vector<RealT> &z_out, const HDSA::Vector<RealT> &beta_in) const
+    {
+      z_out.Zeros();
+      int r = evecs_->Number_of_Vectors();
+      for (int k = 0; k < r; k++)
+      {
+        z_out.Scaled_Plus(beta_in.Get_Entry(k), *(*evecs_)[k]);
+      }
+    }
+
+    void Apply_V_Transpose(HDSA::Vector<RealT> &beta_out, const HDSA::Vector<RealT> &z_in) const
+    {
+      HDSA::Ptr<HDSA::Dense_Matrix<RealT>> res = evecs_->MatVec(z_in);
+      int num_rows = res->Number_of_Rows();
+      for (int i = 0; i < num_rows; i++) {
+          beta_out.Set_Entry(i, (*res)(i, 0));
+      }   
+    }
+
     void Compute_Hessian_GEVP(const HDSA::Ptr<const HDSA::Vector<RealT>> &z, const int &num_evals, const int &oversampling, bool write_output = true)
     {
       HDSA::Ptr<HDSA::Randomized_GEVP<RealT>> hessian_gevp = HDSA::makePtr<MD_Hessian_GEVP<RealT>>(opt_prob_interface_, z_prior_interface_, z);

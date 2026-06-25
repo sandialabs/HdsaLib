@@ -142,6 +142,7 @@ namespace HDSA
 				num_Bvecs += 1;
 
 				std::cout << "Beginning inverse Hessian matvec at Euler step " << k + 1 << std::endl;
+				// This is where nans start
 				int iters = Apply_Inverse_Hessian(*z_new, *z_tmp, *z_current, theta_traj, time_index, cg_tol_);
 				num_Hvecs += iters;
 

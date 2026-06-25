@@ -31,6 +31,7 @@
 #include "HDSA_MD_Posterior_Sampling.hpp"
 #include "HDSA_MD_Hessian_Analysis.hpp"
 #include "HDSA_MD_Update.hpp"
+#include "HDSA_MD_Continuation_Update.hpp"
 #include "HDSA_MD_OUU_Data_Interface_MrHyDE.hpp"
 #include "HDSA_MD_OUU_Opt_Prob_Interface_MrHyDE.hpp"
 #include "HDSA_MD_OUU_Ensemble_Weighting_Matrix.hpp"
@@ -664,8 +665,11 @@ public:
       }
 
       if (use_continuation) {
-        HDSA::Ptr<HDSA::MD_Continuation_Update<ScalarT>> update = HDSA::makePtr<HDSA::MD_Continuation_Update<ScalarT>>(data_interface, u_prior_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis);
+        *outStream << "Performing continuation..." << std::endl;
+        HDSA::Ptr<HDSA::MD_Continuation_Update<ScalarT>> update = HDSA::makePtr<HDSA::MD_Continuation_Update<ScalarT>>(post_sampling, hessian_analysis, 3);
       } else {
+        *outStream << "Performing normal optimal solution update..." << std::endl;
+        *outStream << use_continuation << std::endl;
         HDSA::Ptr<HDSA::MD_Update<ScalarT>> update = HDSA::makePtr<HDSA::MD_Update<ScalarT>>(data_interface, u_prior_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis);
       }
 
@@ -681,7 +685,7 @@ public:
 
         if (hdsa_verbosity > 0)
         {
-          *outStream << "z_update_mean norm = " << posterior_update_samples->mean->Norm() << std::endl;
+          *outStream << "CHANGE: z_update_mean norm = " << posterior_update_samples->mean->Norm() << std::endl;
         }
       }
       else

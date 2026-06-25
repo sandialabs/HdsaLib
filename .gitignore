@@ -15,3 +15,5 @@ examples/rol/shallow_ice_bedrock_inv/Matlab_Data_Processing/GIS_Data/*.txt
 install/
 .continueignore
 .clangd
+.repomix/
+repomix-*

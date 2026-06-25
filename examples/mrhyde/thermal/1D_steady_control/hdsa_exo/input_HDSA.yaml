@@ -6,12 +6,12 @@ ANONYMOUS:
     HDSA:
       Configuration:
         num_prior_samples: 10
-        num_posterior_samples: 10
+        num_posterior_samples: 0
         execute_prior_discrepancy_sampling: true
         execute_posterior_discrepancy_sampling: true
         execute_optimal_solution_update: true
         use_continuation: true
-        verbosity: 1
+        verbosity: 2
       HyperParameters:
         T:
           alpha_u: 0.25
