@@ -291,7 +291,7 @@ namespace HDSA
       }
       else
       {
-        // Sample: Convert 1-based sample_idx to a 0-based index (sample_idx - 1); TODO: double-check
+        // Sample: Convert 1-based sample_idx to a 0-based index (sample_idx - 1)
         ops->Eval = [this, sample_idx](HDSA::Vector<RealT> &out, const HDSA::Vector<RealT> &z, RealT t) {
           Discrepancy_Evaluation_Sample(out, z, sample_idx - 1);
           out.Scale(t);

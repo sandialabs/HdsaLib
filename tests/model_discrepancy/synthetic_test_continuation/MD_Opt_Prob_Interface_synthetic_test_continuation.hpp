@@ -61,7 +61,6 @@ public:
     }
   }
 
-  // TODO: Double-check!
   void Apply_Solution_Operator_z_Jacobian(HDSA::Vector<RealT> &u_out, const HDSA::Vector<RealT> &z_in, const HDSA::Vector<RealT> &z) const
   {
     const HDSA::Std_Vector<RealT> z_in_std = dynamic_cast<const HDSA::Std_Vector<RealT> &>(z_in);

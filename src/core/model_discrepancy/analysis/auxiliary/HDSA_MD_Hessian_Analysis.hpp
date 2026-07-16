@@ -49,9 +49,10 @@ namespace HDSA
       return opt_prob_interface_;
     }
     
-    // New
+
     void Apply_V(HDSA::Vector<RealT> &z_out, const HDSA::Vector<RealT> &beta_in) const
     {
+      if (!use_projector_) { z_out.Set(beta_in); return; }
       z_out.Zeros();
       int r = evecs_->Number_of_Vectors();
       for (int k = 0; k < r; k++)
@@ -62,6 +63,7 @@ namespace HDSA
 
     void Apply_V_Transpose(HDSA::Vector<RealT> &beta_out, const HDSA::Vector<RealT> &z_in) const
     {
+      if (!use_projector_) { beta_out.Set(z_in); return; }
       HDSA::Ptr<HDSA::Dense_Matrix<RealT>> res = evecs_->MatVec(z_in);
       int num_rows = res->Number_of_Rows();
       for (int i = 0; i < num_rows; i++) {

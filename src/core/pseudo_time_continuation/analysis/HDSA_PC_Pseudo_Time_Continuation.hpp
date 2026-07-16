@@ -36,6 +36,7 @@ namespace HDSA
 
 			z_out.Zeros();
 			RealT z_in_Norm = z_in.Norm();
+			if (z_in_Norm == 0.0) { return 0; }
 			HDSA::Ptr<HDSA::Vector<RealT>> r = z_in.Clone();
 			r->Set(z_in);
 			r->Scale(1.0 / z_in_Norm);
@@ -142,7 +143,6 @@ namespace HDSA
 				num_Bvecs += 1;
 
 				std::cout << "Beginning inverse Hessian matvec at Euler step " << k + 1 << std::endl;
-				// This is where nans start
 				int iters = Apply_Inverse_Hessian(*z_new, *z_tmp, *z_current, theta_traj, time_index, cg_tol_);
 				num_Hvecs += iters;
 
