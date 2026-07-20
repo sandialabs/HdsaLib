@@ -119,13 +119,103 @@ int main(int argc, char *argv[])
   int oversampling = 10;
   hessian_analysis->Compute_Hessian_GEVP(data_interface->Get_z_opt(), num_evals, oversampling);
 
-  HDSA::Ptr<HDSA::MD_Continuation_Update<RealT>> update = HDSA::makePtr<HDSA::MD_Continuation_Update<RealT>>(post_sampling, hessian_analysis, 3);
+  // Standard Update
+  // HDSA::Ptr<HDSA::MD_Update<RealT>> update = HDSA::makePtr<HDSA::MD_Update<RealT>>(data_interface, u_prior_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis);
+  // HDSA::Ptr<HDSA::Vector<RealT>> z_k = update->Posterior_Update_Mean(); 
 
+  // Continuation Update
+  int num_continuation_steps = 3;
+  HDSA::Ptr<HDSA::MD_Continuation_Update<RealT>> update = HDSA::makePtr<HDSA::MD_Continuation_Update<RealT>>(post_sampling, hessian_analysis, num_continuation_steps);
   HDSA::Ptr<HDSA::Vector<RealT>> u_k = HDSA::makePtr<HDSA::Std_Vector<RealT>>(m, random_number_generator, comm);
   HDSA::Ptr<HDSA::Vector<RealT>> z_k = HDSA::makePtr<HDSA::Std_Vector<RealT>>(m, random_number_generator, comm);
   HDSA::Ptr<HDSA::Vector<RealT>> beta_k = HDSA::makePtr<HDSA::Std_Vector<RealT>>(num_evals, random_number_generator, comm);
   update->Posterior_Update_Mean(*u_k, *z_k, *beta_k);
   name = "posterior_update_mean.txt";
   z_k->Write_to_File(name);
+
+  // std::cout << std::scientific << std::setprecision(3);
+
+  auto objective_given_state = [&](const HDSA::Vector<RealT> &u_in, const HDSA::Vector<RealT> &z_in) -> RealT {
+    HDSA::Ptr<HDSA::Vector<RealT>> grad_u = u_in.Clone();
+    HDSA::Ptr<HDSA::Vector<RealT>> grad_z = z_in.Clone();
+    return opt_prob_interface->Objective_Function(*grad_u, *grad_z, u_in, z_in);
+  };
+
+  auto low_fidelity_state = [&](const HDSA::Vector<RealT> &z_in) -> HDSA::Ptr<HDSA::Vector<RealT>> {
+    HDSA::Ptr<HDSA::Vector<RealT>> u_lf = data_interface->Get_u_opt()->Clone();
+    opt_prob_interface->State_Solve(*u_lf, z_in);
+    return u_lf;
+  };
+
+  auto high_fidelity_state = [&](const HDSA::Vector<RealT> &z_in) -> HDSA::Ptr<HDSA::Vector<RealT>> {
+    HDSA::Ptr<HDSA::Vector<RealT>> u_hf = data_interface->Get_u_opt()->Clone();
+    const HDSA::Std_Vector<RealT> &z_std = dynamic_cast<const HDSA::Std_Vector<RealT> &>(z_in);
+    HDSA::Std_Vector<RealT> &u_hf_std = dynamic_cast<HDSA::Std_Vector<RealT> &>(*u_hf);
+
+    for (int k = 0; k < z_in.Dimension(); ++k) {
+      u_hf_std.Set_Entry(k, static_cast<RealT>(1.2) * std::pow(z_std(k), static_cast<RealT>(3)));
+    }
+    return u_hf;
+  };
+
+  auto hf_optimal_z_for_current_synthetic_model = [&](const HDSA::Vector<RealT> &z_template) -> HDSA::Ptr<HDSA::Vector<RealT>> {
+    HDSA::Ptr<HDSA::Vector<RealT>> z_hf_opt = z_template.Clone();
+    const HDSA::Std_Vector<RealT> &z_lf_opt_std = dynamic_cast<const HDSA::Std_Vector<RealT> &>(*data_interface->Get_z_opt());
+    HDSA::Std_Vector<RealT> &z_hf_opt_std = dynamic_cast<HDSA::Std_Vector<RealT> &>(*z_hf_opt);
+    const int m = z_template.Dimension();
+    const RealT scale = (1.0) / std::cbrt((1.2));
+    for (int k = 0; k < m; ++k) {
+      // Note that z_HF_opt = (x + 1) / cbrt(1.2)
+      z_hf_opt_std.Set_Entry(k, scale * z_lf_opt_std(k));
+    }
+
+    return z_hf_opt;
+  };
+
+  HDSA::Ptr<const HDSA::Vector<RealT>> z_lf_opt = data_interface->Get_z_opt();
+
+  HDSA::Ptr<HDSA::Vector<RealT>> u_lf_at_lf_opt = low_fidelity_state(*z_lf_opt);
+
+  HDSA::Ptr<HDSA::Vector<RealT>> u_lf_at_updated = low_fidelity_state(*z_k);
+  HDSA::Ptr<HDSA::Vector<RealT>> u_hf_at_lf_opt = high_fidelity_state(*z_lf_opt);
+  HDSA::Ptr<HDSA::Vector<RealT>> u_hf_at_updated = high_fidelity_state(*z_k);
+
+  RealT J_lf_at_lf_opt = objective_given_state(*u_lf_at_lf_opt, *z_lf_opt);
+  RealT J_lf_at_updated = objective_given_state(*u_lf_at_updated, *z_k);
+  RealT J_hf_at_lf_opt = objective_given_state(*u_hf_at_lf_opt, *z_lf_opt);
+  RealT J_hf_at_updated = objective_given_state(*u_hf_at_updated, *z_k);
+
+  HDSA::Ptr<HDSA::Vector<RealT>> z_hf_opt = hf_optimal_z_for_current_synthetic_model(*z_lf_opt);
+  HDSA::Ptr<HDSA::Vector<RealT>> u_hf_at_hf_opt = high_fidelity_state(*z_hf_opt);
+  RealT J_hf_at_hf_opt = objective_given_state(*u_hf_at_hf_opt, *z_hf_opt);
+  HDSA::Ptr<HDSA::Vector<RealT>> diff_lf_to_hf_opt = z_lf_opt->Clone();
+  diff_lf_to_hf_opt->Set(*z_lf_opt);
+  diff_lf_to_hf_opt->Scaled_Plus(-1.0, *z_hf_opt);
+
+  HDSA::Ptr<HDSA::Vector<RealT>> diff_updated_to_hf_opt = z_k->Clone();
+  diff_updated_to_hf_opt->Set(*z_k);
+  diff_updated_to_hf_opt->Scaled_Plus(-1.0, *z_hf_opt);
+
+  std::cout << "-----------------------------------------------------" << std::endl;
+  std::cout << "Actual objective comparison" << std::endl;
+  std::cout << "\nJ_LF at low-fidelity optimum:       "
+            << J_lf_at_lf_opt << std::endl;
+  std::cout << "J_LF at updated solution:           "
+            << J_lf_at_updated << std::endl;
+  std::cout << "\nJ_HF at low-fidelity optimum:       "
+            << J_hf_at_lf_opt << std::endl;
+  std::cout << "J_HF at updated solution:           "
+            << J_hf_at_updated << std::endl;
+  std::cout << "J_HF at exact HF optimum:           "
+            << J_hf_at_hf_opt << std::endl;
+
+  std::cout << "\nHF improvement factor:              "
+    << 100.0 * (1.0 - J_hf_at_updated / J_hf_at_lf_opt) << "%" << std::endl;
+
+  std::cout << "\n||z_LF_opt - z_HF_opt||:            "
+            << diff_lf_to_hf_opt->Norm() << std::endl;
+  std::cout << "||z_updated - z_HF_opt||:           "
+            << diff_updated_to_hf_opt->Norm() << std::endl;
+  
   return 0;
 }

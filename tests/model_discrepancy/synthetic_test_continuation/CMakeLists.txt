@@ -25,9 +25,9 @@ add_custom_command(TARGET synthetic_test_continuation_example_sensitivity.exe PO
     COMMAND ${CMAKE_COMMAND} -E copy
         ${SOURCE_DIR}/random_numbers.txt
         ${TARGET_DIR}/random_numbers.txt
-    # COMMAND ${CMAKE_COMMAND} -E copy
-    #     ${SOURCE_DIR}/Sabl_Output.mat
-    #     ${TARGET_DIR}/Sabl_Output.mat
+    COMMAND ${CMAKE_COMMAND} -E copy
+        ${SOURCE_DIR}/Sabl_Output.mat
+        ${TARGET_DIR}/Sabl_Output.mat
     # Copy the specified files from the reference_output directory
     # COMMAND ${CMAKE_COMMAND} -E copy
     #     ${SOURCE_DIR}/reference_output/prior_discrepancy_sample_1/Vector_3.txt
@@ -44,9 +44,9 @@ add_custom_command(TARGET synthetic_test_continuation_example_sensitivity.exe PO
     # COMMAND ${CMAKE_COMMAND} -E copy
     #     ${SOURCE_DIR}/reference_output/posterior_discrepancy_samples_3/Vector_20.txt
     #     ${TARGET_DIR}/reference_output/posterior_discrepancy_samples_3/Vector_20.txt
-    # COMMAND ${CMAKE_COMMAND} -E copy
-    #     ${SOURCE_DIR}/reference_output/posterior_update_mean.txt 
-    #     ${TARGET_DIR}/reference_output/posterior_update_mean.txt 
+    COMMAND ${CMAKE_COMMAND} -E copy
+        ${SOURCE_DIR}/reference_output/posterior_update_mean.txt 
+        ${TARGET_DIR}/reference_output/posterior_update_mean.txt 
     # COMMAND ${CMAKE_COMMAND} -E copy
     #     ${SOURCE_DIR}/reference_output/posterior_update_samples/Vector_40.txt
     #     ${TARGET_DIR}/reference_output/posterior_update_samples/Vector_40.txt

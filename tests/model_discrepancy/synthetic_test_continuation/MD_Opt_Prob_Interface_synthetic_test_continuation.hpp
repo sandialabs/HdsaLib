@@ -48,7 +48,7 @@ public:
 
   // Assume a constraint u = z^3 nodewise on the mesh defined by nodes in x_
   // Assume an objective (1/2)*(u-T)^t*M*(u-T) where T = (x_+1.0)^3 so that the optimal solution is u_opt=(x_+1.0)^3 and z_opt=x_+1.0
-  // Assume a high-fidelity model u = z^3 + .2*z^2
+  // Assume a high-fidelity model u = z^3 + .2*z^3 (NOTE: not u = z^3 + .2*z^2)
 
   void Apply_Solution_Operator_z_Jacobian_Transpose(HDSA::Vector<RealT> &z_out, const HDSA::Vector<RealT> &u_in, const HDSA::Vector<RealT> &z) const
   {

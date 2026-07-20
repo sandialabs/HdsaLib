@@ -40,7 +40,7 @@ namespace HDSA
 
     virtual void Apply_Solution_Operator_z_Jacobian(HDSA::Vector<RealT> &u_out, const HDSA::Vector<RealT> &z_in, const HDSA::Vector<RealT> &z) const {};
     virtual void State_Solve(HDSA::Vector<RealT> &u_out, const HDSA::Vector<RealT> &z) const {};
-    virtual RealT Objective_Function(HDSA::Vector<RealT> &grad_u, HDSA::Vector<RealT> &grad_z, const HDSA::Vector<RealT> &u_plus_delta, const HDSA::Vector<RealT> &z) const {return static_cast<RealT>(0);};
+    virtual RealT Objective_Function(HDSA::Vector<RealT> &grad_u, HDSA::Vector<RealT> &grad_z, const HDSA::Vector<RealT> &u, const HDSA::Vector<RealT> &z) const {return static_cast<RealT>(0);};
   };
 
 }
