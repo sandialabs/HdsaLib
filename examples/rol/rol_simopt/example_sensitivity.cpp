@@ -23,6 +23,7 @@
 #include "HDSA_Ptr.hpp"
 #include "HDSA_Random_Number_Generator.hpp"
 #include "HDSA_Vector.hpp"
+#include "HDSA_Std_Vector.hpp"
 #include "HDSA_ROL_Vector.hpp"
 #include "HDSA_MD_ROL_Opt_Prob_Interface.hpp"
 #include "HDSA_MultiVector.hpp"
@@ -32,6 +33,7 @@
 #include "HDSA_MD_Posterior_Vectors.hpp"
 #include "HDSA_MD_Hessian_Analysis.hpp"
 #include "HDSA_MD_Update.hpp"
+#include "HDSA_MD_Continuation_Update.hpp"
 #include "Elliptic_u_Prior_Interface_rol_simopt_test_problem.hpp"
 #include "Elliptic_z_Prior_Interface_rol_simopt_test_problem.hpp"
 #include "Data_Interface_rol_simopt_test_problem.hpp"
@@ -165,13 +167,26 @@ int main(int argc, char *argv[])
   oversampling = parlist->sublist("MD Hessian Analysis").get("Oversampling Factor", 10);
   hessian_analysis->Compute_Hessian_GEVP(data_interface->Get_z_opt(), num_evals, oversampling);
 
-  HDSA::Ptr<HDSA::MD_Update<RealT>> update = HDSA::makePtr<HDSA::MD_Update<RealT>>(data_interface, u_prior_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis);
-
-  HDSA::Ptr<HDSA::MD_Posterior_Vectors<RealT>> posterior_update_samples = update->Posterior_Update_Samples();
-  name = "posterior_update_mean.txt";
-  posterior_update_samples->mean->Write_to_File(name);
-  name = "posterior_update_samples";
-  posterior_update_samples->samples->Write_to_File(name);
+  bool use_continuation = parlist->sublist("MD Continuation Update").get("Use Continuation", false);
+  if (use_continuation) {
+    int num_continuation_steps = parlist->sublist("MD Continuation Update").get("Number of Continuation Steps", 3);
+    HDSA::Ptr<const HDSA::Comm<int>> comm = HDSA::makePtr<HDSA::Comm<int>>();
+    HDSA::Ptr<HDSA::MD_Continuation_Update<RealT>> update = HDSA::makePtr<HDSA::MD_Continuation_Update<RealT>>(post_sampling, hessian_analysis, num_continuation_steps);
+    HDSA::Ptr<HDSA::Vector<RealT>> u_k = data_interface->Get_u_opt()->Clone();
+    HDSA::Ptr<HDSA::Vector<RealT>> z_k = data_interface->Get_z_opt()->Clone();
+    HDSA::Ptr<HDSA::Vector<RealT>> beta_k = HDSA::makePtr<HDSA::Std_Vector<RealT>>(num_evals, random_number_generator, comm);
+    update->Posterior_Update_Mean(*u_k, *z_k, *beta_k); // error occurs here
+    name = "posterior_update_continuation_mean.txt";
+    z_k->Write_to_File(name);
+  } 
+  else {
+    HDSA::Ptr<HDSA::MD_Update<RealT>> update = HDSA::makePtr<HDSA::MD_Update<RealT>>(data_interface, u_prior_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis);
+    HDSA::Ptr<HDSA::MD_Posterior_Vectors<RealT>> posterior_update_samples = update->Posterior_Update_Samples();
+    name = "posterior_update_mean.txt";
+    posterior_update_samples->mean->Write_to_File(name);
+    name = "posterior_update_samples";
+    posterior_update_samples->samples->Write_to_File(name);
+  }
 
   return 0;
 }

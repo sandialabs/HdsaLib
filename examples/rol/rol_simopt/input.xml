@@ -1,21 +1,25 @@
 <ParameterList name="Inputs">
   <!-- ===========  BEGIN GENERAL INPUT PARAMETER SUBLIST  =========== -->
   <ParameterList name="MD Prior">
-    <Parameter name="alpha_u"          type="double" value="0.25"   />
-    <Parameter name="beta_u"          type="double" value="5.e-2"   />
-    <Parameter name="alpha_z"          type="double" value="1.e-4"   />
-    <Parameter name="beta_z"          type="double" value="1.e-2"   />
-    <Parameter name="alpha_d"          type="double" value="1.e-5"   />
-    <Parameter name="Number of Singular Values"  type="int"    value="50"     />
-    <Parameter name="Oversampling Factor"        type="int"    value="1"     />
-    <Parameter name="Number of Subspace Iterations"        type="int"    value="2"     />    
+    <Parameter name="alpha_u"                       type="double" value="0.25"  />
+    <Parameter name="beta_u"                        type="double" value="5.e-2" />
+    <Parameter name="alpha_z"                       type="double" value="1.e-4" />
+    <Parameter name="beta_z"                        type="double" value="1.e-2" />
+    <Parameter name="alpha_d"                       type="double" value="1.e-5" />
+    <Parameter name="Number of Singular Values"     type="int"    value="50"    />
+    <Parameter name="Oversampling Factor"           type="int"    value="1"     />
+    <Parameter name="Number of Subspace Iterations" type="int"    value="2"     />    
   </ParameterList>
-    <ParameterList name="MD Hessian Analysis">
-    <Parameter name="Rank"  type="int"    value="20"     />
-    <Parameter name="Oversampling Factor"        type="int"    value="10"     />    
+  <ParameterList name="MD Hessian Analysis">
+    <Parameter name="Rank"                type="int"    value="20" />
+    <Parameter name="Oversampling Factor" type="int"    value="10" />    
+  </ParameterList>
+  <ParameterList name="MD Continuation Update">
+    <Parameter name="Use Continuation"             type="bool" value="true" />
+    <Parameter name="Number of Continuation Steps" type="int"  value="3"     />
   </ParameterList>
   <ParameterList name="General">
-    <Parameter name="Scale for Epsilon Active Sets"          type="double" value="1.0"   />
+    <Parameter name="Scale for Epsilon Active Sets"          type="double" value="1.0" />
     <!-- ===========  USE INEXACT OBJECTIVE OR DERIVATIVES  =========== -->
     <Parameter name="Inexact Objective Function"             type="bool" value="false" />
     <Parameter name="Inexact Gradient"                       type="bool" value="false" />

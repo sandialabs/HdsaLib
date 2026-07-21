@@ -85,6 +85,41 @@ namespace HDSA
       obj_simopt_->update(*u_rol.rol_vec, *z_rol.rol_vec, ROL::UpdateType::Temp);
       obj_simopt_->hessVec_11(*u_out_rol.rol_vec, *u_in_rol.rol_vec, *u_rol.rol_vec, *z_rol.rol_vec, tol);
     }
+
+    void Apply_Solution_Operator_z_Jacobian(HDSA::Vector<RealT> &u_out, const HDSA::Vector<RealT> &z_in, const HDSA::Vector<RealT> &z) const {
+      HDSA::ROL_Vector<RealT> &u_out_rol = dynamic_cast<HDSA::ROL_Vector<RealT> &>(u_out);
+      const HDSA::ROL_Vector<RealT> &z_in_rol = dynamic_cast<const HDSA::ROL_Vector<RealT> &>(z_in);
+      const HDSA::ROL_Vector<RealT> &z_rol = dynamic_cast<const HDSA::ROL_Vector<RealT> &>(z);
+      RealT tol = static_cast<RealT>(1.e-8);
+      ROL::Ptr<ROL::Vector<RealT>> u_rol_vec = u_out_rol.rol_vec->clone();
+      ROL::Ptr<ROL::Vector<RealT>> c_rol_vec = u_out_rol.rol_vec->clone();
+      con_simopt_->solve(*c_rol_vec, *u_rol_vec, *z_rol.rol_vec, tol);
+      ROL::Ptr<ROL::Vector<RealT>> c_z_zin = u_out_rol.rol_vec->clone();
+      con_simopt_->applyJacobian_2(*c_z_zin, *z_in_rol.rol_vec, *u_rol_vec, *z_rol.rol_vec, tol);
+      con_simopt_->applyInverseJacobian_1(*u_out_rol.rol_vec, *c_z_zin, *u_rol_vec, *z_rol.rol_vec, tol);
+      u_out.Scale(static_cast<RealT>(-1));
+    }
+
+    void State_Solve(HDSA::Vector<RealT> &u_out, const HDSA::Vector<RealT> &z) const {
+      HDSA::ROL_Vector<RealT> &u_out_rol = dynamic_cast<HDSA::ROL_Vector<RealT> &>(u_out);
+      const HDSA::ROL_Vector<RealT> &z_rol = dynamic_cast<const HDSA::ROL_Vector<RealT> &>(z);
+      RealT tol = static_cast<RealT>(1.e-8);
+      ROL::Ptr<ROL::Vector<RealT>> c_rol_vec = u_out_rol.rol_vec->clone();
+      con_simopt_->solve(*c_rol_vec, *u_out_rol.rol_vec, *z_rol.rol_vec, tol);
+    }
+
+    RealT Objective_Function(HDSA::Vector<RealT> &grad_u, HDSA::Vector<RealT> &grad_z, const HDSA::Vector<RealT> &u, const HDSA::Vector<RealT> &z) const {
+      HDSA::ROL_Vector<RealT> &grad_u_rol = dynamic_cast<HDSA::ROL_Vector<RealT> &>(grad_u);
+      HDSA::ROL_Vector<RealT> &grad_z_rol = dynamic_cast<HDSA::ROL_Vector<RealT> &>(grad_z);
+      const HDSA::ROL_Vector<RealT> &u_rol = dynamic_cast<const HDSA::ROL_Vector<RealT> &>(u);
+      const HDSA::ROL_Vector<RealT> &z_rol = dynamic_cast<const HDSA::ROL_Vector<RealT> &>(z);
+      RealT tol = static_cast<RealT>(1.e-8);
+      obj_simopt_->update(*u_rol.rol_vec, *z_rol.rol_vec, ROL::UpdateType::Temp);
+      const RealT value = obj_simopt_->value(*u_rol.rol_vec, *z_rol.rol_vec, tol);
+      obj_simopt_->gradient_1(*grad_u_rol.rol_vec, *u_rol.rol_vec, *z_rol.rol_vec, tol);
+      obj_simopt_->gradient_2(*grad_z_rol.rol_vec, *u_rol.rol_vec, *z_rol.rol_vec, tol);
+      return value;
+    }
   };
 
 }
