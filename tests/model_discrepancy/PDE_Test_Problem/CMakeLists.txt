@@ -26,8 +26,8 @@ add_custom_command(TARGET PDE_Test_Problem_example_sensitivity.exe POST_BUILD
         ${SOURCE_DIR}/random_numbers.txt
         ${TARGET_DIR}/random_numbers.txt
     COMMAND ${CMAKE_COMMAND} -E copy
-        ${SOURCE_DIR}/Sabl_Output.mat
-        ${TARGET_DIR}/Sabl_Output.mat
+        ${SOURCE_DIR}/Sola_Output.mat
+        ${TARGET_DIR}/Sola_Output.mat
     COMMAND ${CMAKE_COMMAND} -E copy
         ${SOURCE_DIR}/u_opt.txt
         ${TARGET_DIR}/u_opt.txt

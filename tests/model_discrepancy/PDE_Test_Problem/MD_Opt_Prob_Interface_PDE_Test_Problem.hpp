@@ -166,6 +166,66 @@ public:
       u_out_std.Set_Entry(k, (*Hv)(k, 0));
     }
   }
+
+  void State_Solve(HDSA::Vector<RealT> &u_out, const HDSA::Vector<RealT> &z) const {
+    const HDSA::Std_Vector<RealT> &z_std = dynamic_cast<const HDSA::Std_Vector<RealT> &>(z);
+    HDSA::Std_Vector<RealT> &u_out_std = dynamic_cast<HDSA::Std_Vector<RealT> &>(u_out);
+    HDSA::Ptr<HDSA::Dense_Matrix<RealT>> z_mat = HDSA::makePtr<HDSA::Dense_Matrix<RealT>>(m_, 1);
+    for (int k = 0; k < m_; k++) {
+      z_mat->Set_Entry(k, 0, z_std(k));
+    }
+    HDSA::Ptr<HDSA::Dense_Matrix<RealT>> u_mat = HDSA::makePtr<HDSA::Dense_Matrix<RealT>>(m_, 1);
+    sol_op_lofi_->Multiply(*u_mat, *z_mat);
+    for (int k = 0; k < m_; k++)
+    {
+      u_out_std.Set_Entry(k, (*u_mat)(k, 0));
+    }
+  }
+
+  void Apply_Solution_Operator_z_Jacobian( HDSA::Vector<RealT> &u_out, const HDSA::Vector<RealT> &z_in, const HDSA::Vector<RealT> &z) const {
+    const HDSA::Std_Vector<RealT> &z_in_std = dynamic_cast<const HDSA::Std_Vector<RealT> &>(z_in);
+    HDSA::Std_Vector<RealT> &u_out_std = dynamic_cast<HDSA::Std_Vector<RealT> &>(u_out);
+    HDSA::Ptr<HDSA::Dense_Matrix<RealT>> z_mat = HDSA::makePtr<HDSA::Dense_Matrix<RealT>>(m_, 1);
+    for (int k = 0; k < m_; k++) {
+      z_mat->Set_Entry(k, 0, z_in_std(k));
+    }
+    HDSA::Ptr<HDSA::Dense_Matrix<RealT>> u_mat = HDSA::makePtr<HDSA::Dense_Matrix<RealT>>(m_, 1);
+    sol_op_lofi_->Multiply(*u_mat, *z_mat);
+    for (int k = 0; k < m_; k++) {
+      u_out_std.Set_Entry(k, (*u_mat)(k, 0));
+    }
+  }
+
+  RealT Objective_Function( HDSA::Vector<RealT> &grad_u, HDSA::Vector<RealT> &grad_z, const HDSA::Vector<RealT> &u, const HDSA::Vector<RealT> &z) const {
+    Misfit_Gradient(grad_u, u, z);
+    const HDSA::Std_Vector<RealT> &u_std = dynamic_cast<const HDSA::Std_Vector<RealT> &>(u);
+    const HDSA::Std_Vector<RealT> &z_std = dynamic_cast<const HDSA::Std_Vector<RealT> &>(z);
+    HDSA::Std_Vector<RealT> &grad_z_std = dynamic_cast<HDSA::Std_Vector<RealT> &>(grad_z);
+
+    HDSA::Ptr<HDSA::Dense_Matrix<RealT>> u_minus_target = HDSA::makePtr<HDSA::Dense_Matrix<RealT>>(m_, 1);
+    HDSA::Ptr<HDSA::Dense_Matrix<RealT>> z_mat = HDSA::makePtr<HDSA::Dense_Matrix<RealT>>(m_, 1);
+    for (int k = 0; k < m_; k++) {
+      u_minus_target->Set_Entry(k, 0, u_std(k) - (*target_)(k, 0));
+      z_mat->Set_Entry(k, 0, z_std(k));
+    }
+
+    HDSA::Ptr<HDSA::Dense_Matrix<RealT>> M_u_minus_target = HDSA::makePtr<HDSA::Dense_Matrix<RealT>>(m_, 1);
+    HDSA::Ptr<HDSA::Dense_Matrix<RealT>> M_z = HDSA::makePtr<HDSA::Dense_Matrix<RealT>>(m_, 1);
+    M_->Multiply(*M_u_minus_target, *u_minus_target);
+    M_->Multiply(*M_z, *z_mat);
+
+    RealT misfit_value = static_cast<RealT>(0);
+    RealT reg_value = static_cast<RealT>(0);
+
+    for (int k = 0; k < m_; k++) {
+      misfit_value += (*u_minus_target)(k, 0) * (*M_u_minus_target)(k, 0);
+      reg_value += z_std(k) * (*M_z)(k, 0);
+      grad_z_std.Set_Entry(k, reg_coeff_ * (*M_z)(k, 0));
+    }
+
+    RealT value = static_cast<RealT>(0.5) * misfit_value + static_cast<RealT>(0.5) * reg_coeff_ * reg_value;
+    return value;
+  }
 };
 
 #endif
