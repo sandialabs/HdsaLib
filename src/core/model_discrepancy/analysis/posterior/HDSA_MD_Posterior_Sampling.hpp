@@ -11,24 +11,25 @@
 #include "HDSA_MD_Posterior_Vectors.hpp"
 
 namespace HDSA
-
 {
 
 	template <class RealT>
 	class MD_Posterior_Sampling
 	{
 
+	private:
+		HDSA::Ptr<HDSA::MD_Data_Interface<RealT>> data_interface_;
+		HDSA::Ptr<HDSA::MD_u_Prior_Interface<RealT>> u_prior_interface_;
+		HDSA::Ptr<HDSA::MD_z_Prior_Interface<RealT>> z_prior_interface_;
+
 	public:
-		HDSA::Ptr<HDSA::MD_Data_Interface<RealT>> data_interface;
-		HDSA::Ptr<HDSA::MD_u_Prior_Interface<RealT>> u_prior_interface;
-		HDSA::Ptr<HDSA::MD_z_Prior_Interface<RealT>> z_prior_interface;
 		HDSA::Ptr<HDSA::MD_Posterior_Data<RealT>> post_data;
 
 		MD_Posterior_Sampling(const HDSA::Ptr<HDSA::MD_Data_Interface<RealT>> &data_interface, const HDSA::Ptr<HDSA::MD_u_Prior_Interface<RealT>> &u_prior_interface, const HDSA::Ptr<HDSA::MD_z_Prior_Interface<RealT>> &z_prior_interface)
 		{
-			this->data_interface = data_interface;
-			this->u_prior_interface = u_prior_interface;
-			this->z_prior_interface = z_prior_interface;
+			data_interface_ = data_interface;
+			u_prior_interface_ = u_prior_interface;
+			z_prior_interface_ = z_prior_interface;
 			post_data = HDSA::makePtr<HDSA::MD_Posterior_Data<RealT>>();
 		}
 
@@ -38,7 +39,7 @@ namespace HDSA
 
 		void Compute_Posterior_Data(const RealT &alpha_d, int &num_samples)
 		{
-			post_data->Compute_Posterior_Data(*data_interface, *u_prior_interface, *z_prior_interface, alpha_d, num_samples);
+			post_data->Compute_Posterior_Data(*data_interface_, *u_prior_interface_, *z_prior_interface_, alpha_d, num_samples);
 		}
 
 		std::vector<HDSA::Ptr<HDSA::MD_Posterior_Vectors<RealT>>> Posterior_Discrepancy_Samples(std::vector<HDSA::Ptr<HDSA::Vector<RealT>>> &z) const
@@ -49,15 +50,15 @@ namespace HDSA
 
 			for (int k = 0; k < p; k++)
 			{
-				delta[k] = HDSA::makePtr<HDSA::MD_Posterior_Vectors<RealT>>(post_data->num_samples, *data_interface->Get_u_opt());
+				delta[k] = HDSA::makePtr<HDSA::MD_Posterior_Vectors<RealT>>(post_data->num_samples, *data_interface_->Get_u_opt());
 				HDSA::Ptr<HDSA::Vector<RealT>> delta_mean_k = delta[k]->mean;
 				HDSA::Ptr<HDSA::MultiVector<RealT>> delta_samples_k = delta[k]->samples;
 
 				HDSA::Ptr<HDSA::Vector<RealT>> dz_k = z[k]->Clone();
 				dz_k->Set(*z[k]);
-				dz_k->Scaled_Plus(-1.0, *data_interface->Get_z_opt());
+				dz_k->Scaled_Plus(-1.0, *data_interface_->Get_z_opt());
 				HDSA::Ptr<HDSA::Vector<RealT>> M_z_dz_k = z[k]->Clone();
-				z_prior_interface->Apply_M_z(*M_z_dz_k, *dz_k);
+				z_prior_interface_->Apply_M_z(*M_z_dz_k, *dz_k);
 
 				for (int ell = 0; ell < post_data->N; ell++)
 				{
@@ -88,12 +89,12 @@ namespace HDSA
 					delta_samples_k->Scaled_Plus(coeff, *post_data->u_i_hat[i]);
 				}
 				delta_mean_k->Scale(1.0 / post_data->alpha_d);
-				delta_mean_k->Plus(*data_interface->Get_data_shift());
+				delta_mean_k->Plus(*data_interface_->Get_data_shift());
 				delta_samples_k->Scale(std::sqrt(post_data->alpha_d));
 
 				// Add delta_breve terms to delta_samples_k
 				HDSA::Ptr<HDSA::Vector<RealT>> W_z_inv_M_z_dz_k = dz_k->Clone();
-				z_prior_interface->Apply_W_z_Inverse(*W_z_inv_M_z_dz_k, *M_z_dz_k);
+				z_prior_interface_->Apply_W_z_Inverse(*W_z_inv_M_z_dz_k, *M_z_dz_k);
 
 				// Compute z_tmp = M_z_dz_k - Zc * linsolve(Zc_M_z_W_z_inv_M_z_Zc, M_z_Zc' * W_z_inv_dz_k)
 				HDSA::Ptr<HDSA::Vector<RealT>> z_tmp = dz_k->Clone();

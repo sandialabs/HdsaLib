@@ -141,7 +141,7 @@ int main(int argc, char *argv[])
             << std::setprecision(8) << (posterior_update_samples->mean)->Norm() << std::setprecision(6) << std::endl;
 
   int num_continuation_steps = 3;
-  HDSA::Ptr<HDSA::MD_Continuation_Update<RealT>> cont_update = HDSA::makePtr<HDSA::MD_Continuation_Update<RealT>>(post_sampling, hessian_analysis, num_continuation_steps);
+  HDSA::Ptr<HDSA::MD_Continuation_Update<RealT>> cont_update = HDSA::makePtr<HDSA::MD_Continuation_Update<RealT>>(data_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis, num_continuation_steps);
   HDSA::Ptr<HDSA::Vector<RealT>> u_k = HDSA::makePtr<HDSA::Std_Vector<RealT>>(m, random_number_generator, comm);
   HDSA::Ptr<HDSA::Vector<RealT>> z_k = HDSA::makePtr<HDSA::Std_Vector<RealT>>(m, random_number_generator, comm);
   HDSA::Ptr<HDSA::Vector<RealT>> beta_k = HDSA::makePtr<HDSA::Std_Vector<RealT>>(num_evals, random_number_generator, comm);

@@ -42,13 +42,7 @@ namespace HDSA
     HDSA::Ptr<HDSA::Dense_Matrix<RealT>> Get_Evals(void) const
     {
       return evals_;
-    }
-
-    HDSA::Ptr<HDSA::MD_Opt_Prob_Interface<RealT>> Get_Opt_Prob_Interface(void) const
-    {
-      return opt_prob_interface_;
-    }
-    
+    }    
 
     void Apply_V(HDSA::Vector<RealT> &z_out, const HDSA::Vector<RealT> &beta_in) const
     {

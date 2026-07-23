@@ -35,12 +35,11 @@ namespace HDSA
   {
 
   private:
-    HDSA::Ptr<HDSA::MD_Posterior_Sampling<RealT>> post_sampling_;
-    HDSA::Ptr<HDSA::MD_Posterior_Data<RealT>> post_data_;
-    HDSA::Ptr<HDSA::MD_Hessian_Analysis<RealT>> hessian_analysis_;
-    HDSA::Ptr<HDSA::MD_Opt_Prob_Interface<RealT>> opt_prob_interface_;
     HDSA::Ptr<HDSA::MD_Data_Interface<RealT>> data_interface_;
     HDSA::Ptr<HDSA::MD_z_Prior_Interface<RealT>> z_prior_interface_;
+    HDSA::Ptr<HDSA::MD_Opt_Prob_Interface<RealT>> opt_prob_interface_;
+    HDSA::Ptr<HDSA::MD_Hessian_Analysis<RealT>> hessian_analysis_;
+    HDSA::Ptr<HDSA::MD_Posterior_Data<RealT>> post_data_;
     HDSA::Ptr<HDSA::Vector<RealT>> u_opt_;
     HDSA::Ptr<HDSA::Vector<RealT>> z_opt_;
 
@@ -270,44 +269,54 @@ namespace HDSA
       if (sample_idx == 0)
       {
         // Mean
-        ops->Eval = [this](HDSA::Vector<RealT> &out, const HDSA::Vector<RealT> &z, RealT t) {
+        ops->Eval = [this](HDSA::Vector<RealT> &out, const HDSA::Vector<RealT> &z, RealT t)
+        {
           Discrepancy_Evaluation_Mean(out, z);
           out.Scale(t);
         };
-        ops->Apply_z_Jacobian = [this](HDSA::Vector<RealT> &out, const HDSA::Vector<RealT> &z_in, const HDSA::Vector<RealT> &z, RealT t) {
+        ops->Apply_z_Jacobian = [this](HDSA::Vector<RealT> &out, const HDSA::Vector<RealT> &z_in, const HDSA::Vector<RealT> &z, RealT t)
+        {
           Apply_Discrepancy_z_Jacobian_Mean(out, z_in);
           out.Scale(t);
         };
-        ops->Apply_z_Jacobian_Transpose = [this](HDSA::Vector<RealT> &out, const HDSA::Vector<RealT> &u_in, const HDSA::Vector<RealT> &z, RealT t) {
+        ops->Apply_z_Jacobian_Transpose = [this](HDSA::Vector<RealT> &out, const HDSA::Vector<RealT> &u_in, const HDSA::Vector<RealT> &z, RealT t)
+        {
           Apply_Discrepancy_z_Jacobian_Transpose_Mean(out, u_in);
           out.Scale(t);
         };
-        ops->Apply_theta_Jacobian = [this](HDSA::Vector<RealT> &out, const HDSA::Vector<RealT> &z) {
+        ops->Apply_theta_Jacobian = [this](HDSA::Vector<RealT> &out, const HDSA::Vector<RealT> &z)
+        {
           Discrepancy_Evaluation_Mean(out, z);
         };
-        ops->Apply_z_theta_Hessian = [this](HDSA::Vector<RealT> &out, const HDSA::Vector<RealT> &u_in, const HDSA::Vector<RealT> &z) {
+        ops->Apply_z_theta_Hessian = [this](HDSA::Vector<RealT> &out, const HDSA::Vector<RealT> &u_in, const HDSA::Vector<RealT> &z)
+        {
           Apply_Discrepancy_z_Jacobian_Transpose_Mean(out, u_in);
         };
       }
       else
       {
         // Sample: Convert 1-based sample_idx to a 0-based index (sample_idx - 1)
-        ops->Eval = [this, sample_idx](HDSA::Vector<RealT> &out, const HDSA::Vector<RealT> &z, RealT t) {
+        ops->Eval = [this, sample_idx](HDSA::Vector<RealT> &out, const HDSA::Vector<RealT> &z, RealT t)
+        {
           Discrepancy_Evaluation_Sample(out, z, sample_idx - 1);
           out.Scale(t);
         };
-        ops->Apply_z_Jacobian = [this, sample_idx](HDSA::Vector<RealT> &out, const HDSA::Vector<RealT> &z_in, const HDSA::Vector<RealT> &z, RealT t) {
+        ops->Apply_z_Jacobian = [this, sample_idx](HDSA::Vector<RealT> &out, const HDSA::Vector<RealT> &z_in, const HDSA::Vector<RealT> &z, RealT t)
+        {
           Apply_Discrepancy_z_Jacobian_Sample(out, z_in, z, sample_idx - 1);
           out.Scale(t);
         };
-        ops->Apply_z_Jacobian_Transpose = [this, sample_idx](HDSA::Vector<RealT> &out, const HDSA::Vector<RealT> &u_in, const HDSA::Vector<RealT> &z, RealT t) {
+        ops->Apply_z_Jacobian_Transpose = [this, sample_idx](HDSA::Vector<RealT> &out, const HDSA::Vector<RealT> &u_in, const HDSA::Vector<RealT> &z, RealT t)
+        {
           Apply_Discrepancy_z_Jacobian_Transpose_Sample(out, u_in, z, sample_idx - 1);
           out.Scale(t);
         };
-        ops->Apply_theta_Jacobian = [this, sample_idx](HDSA::Vector<RealT> &out, const HDSA::Vector<RealT> &z) {
+        ops->Apply_theta_Jacobian = [this, sample_idx](HDSA::Vector<RealT> &out, const HDSA::Vector<RealT> &z)
+        {
           Discrepancy_Evaluation_Sample(out, z, sample_idx - 1);
         };
-        ops->Apply_z_theta_Hessian = [this, sample_idx](HDSA::Vector<RealT> &out, const HDSA::Vector<RealT> &u_in, const HDSA::Vector<RealT> &z) {
+        ops->Apply_z_theta_Hessian = [this, sample_idx](HDSA::Vector<RealT> &out, const HDSA::Vector<RealT> &u_in, const HDSA::Vector<RealT> &z)
+        {
           Apply_Discrepancy_z_Jacobian_Transpose_Sample(out, u_in, z, sample_idx - 1);
         };
       }
@@ -315,13 +324,11 @@ namespace HDSA
     }
 
   public:
-    MD_Continuation_Sensitivity_Operators(const HDSA::Ptr<HDSA::MD_Posterior_Sampling<RealT>> &post_sampling, const HDSA::Ptr<HDSA::MD_Hessian_Analysis<RealT>> &hessian_analysis)
-        : post_sampling_(post_sampling), hessian_analysis_(hessian_analysis)
+    MD_Continuation_Sensitivity_Operators(const HDSA::Ptr<HDSA::MD_Data_Interface<RealT>> &data_interface, const HDSA::Ptr<HDSA::MD_z_Prior_Interface<RealT>> &z_prior_interface,
+                                          const HDSA::Ptr<HDSA::MD_Opt_Prob_Interface<RealT>> &opt_prob_interface, const HDSA::Ptr<HDSA::MD_Posterior_Sampling<RealT>> &post_sampling,
+                                          const HDSA::Ptr<HDSA::MD_Hessian_Analysis<RealT>> &hessian_analysis) : data_interface_(data_interface), z_prior_interface_(z_prior_interface), opt_prob_interface_(opt_prob_interface), hessian_analysis_(hessian_analysis)
     {
-      post_data_ = post_sampling_->post_data;
-      opt_prob_interface_ = hessian_analysis_->Get_Opt_Prob_Interface();;
-      data_interface_ = post_sampling_->data_interface;
-      z_prior_interface_ = post_sampling_->z_prior_interface;
+      post_data_ = post_sampling->post_data;
       u_opt_ = data_interface_->Get_u_opt()->Clone();
       u_opt_->Set(*data_interface_->Get_u_opt());
       z_opt_ = data_interface_->Get_z_opt()->Clone();
@@ -362,8 +369,8 @@ namespace HDSA
     {
     }
 
-    HDSA::Ptr<HDSA::Vector<RealT>> Get_Current_U(void) const { return current_u_; }
-    HDSA::Ptr<HDSA::Vector<RealT>> Get_Current_Z(void) const { return current_z_; }
+    HDSA::Ptr<HDSA::Vector<RealT>> Get_Current_u(void) const { return current_u_; }
+    HDSA::Ptr<HDSA::Vector<RealT>> Get_Current_z(void) const { return current_z_; }
 
     void State_Evaluation(const HDSA::Vector<RealT> &beta, const HDSA::PC_Auxillary_Parameter_Trajectory<RealT> &theta_traj, RealT time_index)
     {
@@ -394,7 +401,7 @@ namespace HDSA
         current_t_ = t;
         current_beta_ = beta.Clone();
         current_beta_->Set(beta);
-        current_z_=z_opt_->Clone();
+        current_z_ = z_opt_->Clone();
         current_z_->Set(*z_opt_);
         HDSA::Ptr<Vector<RealT>> dz = z_opt_->Clone();
         hessian_analysis_->Apply_V(*dz, beta);

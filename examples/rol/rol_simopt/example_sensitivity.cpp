@@ -171,7 +171,7 @@ int main(int argc, char *argv[])
   if (use_continuation) {
     int num_continuation_steps = parlist->sublist("MD Continuation Update").get("Number of Continuation Steps", 3);
     HDSA::Ptr<const HDSA::Comm<int>> comm = HDSA::makePtr<HDSA::Comm<int>>();
-    HDSA::Ptr<HDSA::MD_Continuation_Update<RealT>> update = HDSA::makePtr<HDSA::MD_Continuation_Update<RealT>>(post_sampling, hessian_analysis, num_continuation_steps);
+    HDSA::Ptr<HDSA::MD_Continuation_Update<RealT>> update = HDSA::makePtr<HDSA::MD_Continuation_Update<RealT>>(data_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis, num_continuation_steps);
     HDSA::Ptr<HDSA::Vector<RealT>> u_k = data_interface->Get_u_opt()->Clone();
     HDSA::Ptr<HDSA::Vector<RealT>> z_k = data_interface->Get_z_opt()->Clone();
     HDSA::Ptr<HDSA::Vector<RealT>> beta_k = HDSA::makePtr<HDSA::Std_Vector<RealT>>(num_evals, random_number_generator, comm);
