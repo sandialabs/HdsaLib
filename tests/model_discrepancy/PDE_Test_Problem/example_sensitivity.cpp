@@ -19,7 +19,6 @@
 #include "HDSA_MD_Posterior_Vectors.hpp"
 #include "HDSA_MD_Hessian_Analysis.hpp"
 #include "HDSA_MD_Update.hpp"
-#include "HDSA_MD_Continuation_Update.hpp"
 #include "MD_Data_Interface_PDE_Test_Problem.hpp"
 #include "MD_Opt_Prob_Interface_PDE_Test_Problem.hpp"
 #include "MD_Elliptic_u_Prior_Interface_PDE_Test_Problem.hpp"
@@ -125,10 +124,6 @@ int main(int argc, char *argv[])
 
   HDSA::Ptr<HDSA::MD_Hessian_Analysis<RealT>> hessian_analysis = HDSA::makePtr<HDSA::MD_Hessian_Analysis<RealT>>(opt_prob_interface, z_prior_interface);
 
-  int num_evals = m;
-  // int hess_oversampling = 10;
-  // hessian_analysis->Compute_Hessian_GEVP(data_interface->Get_z_opt(), num_evals, hess_oversampling);
-
   HDSA::Ptr<HDSA::MD_Update<RealT>> update = HDSA::makePtr<HDSA::MD_Update<RealT>>(data_interface, u_prior_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis);
 
   HDSA::Ptr<HDSA::MD_Posterior_Vectors<RealT>> posterior_update_samples = update->Posterior_Update_Samples();
@@ -136,22 +131,6 @@ int main(int argc, char *argv[])
   posterior_update_samples->mean->Write_to_File(name);
   name = "posterior_update_samples";
   posterior_update_samples->samples->Write_to_File(name);
-
-  std::cout << "Norm of posterior update:       "
-            << std::setprecision(8) << (posterior_update_samples->mean)->Norm() << std::setprecision(6) << std::endl;
-
-  int num_continuation_steps = 3;
-  HDSA::Ptr<HDSA::MD_Continuation_Update<RealT>> cont_update = HDSA::makePtr<HDSA::MD_Continuation_Update<RealT>>(post_sampling, hessian_analysis, num_continuation_steps);
-  HDSA::Ptr<HDSA::Vector<RealT>> u_k = HDSA::makePtr<HDSA::Std_Vector<RealT>>(m, random_number_generator, comm);
-  HDSA::Ptr<HDSA::Vector<RealT>> z_k = HDSA::makePtr<HDSA::Std_Vector<RealT>>(m, random_number_generator, comm);
-  HDSA::Ptr<HDSA::Vector<RealT>> beta_k = HDSA::makePtr<HDSA::Std_Vector<RealT>>(num_evals, random_number_generator, comm);
-  cont_update->Posterior_Update_Mean(*u_k, *z_k, *beta_k);
-  name = "posterior_update_mean_continuation.txt";
-  z_k->Write_to_File(name);
-
-  std::cout << "Norm of posterior update (ctn): "
-            << std::setprecision(8) << z_k->Norm() << std::setprecision(6) << std::endl;
-
 
   return 0;
 }

@@ -25,7 +25,9 @@ def main():
     base_directory = '.'  # Change this to the appropriate base directory if needed
     subdirectories = [
         'PDE_Test_Problem',
+        'PDE_Test_Problem_Continuation',
         'synthetic_test',
+        'synthetic_test_continuation',
         'synthetic_test_bilaplacian',
         'synthetic_test_elliptic_prior',
         'synthetic_test_hessian_gevp',
