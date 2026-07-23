@@ -135,10 +135,20 @@ int main(int argc, char *argv[])
 
   // std::cout << std::scientific << std::setprecision(3);
 
-  auto objective_given_state = [&](const HDSA::Vector<RealT> &u_in, const HDSA::Vector<RealT> &z_in) -> RealT {
-    HDSA::Ptr<HDSA::Vector<RealT>> grad_u = u_in.Clone();
-    HDSA::Ptr<HDSA::Vector<RealT>> grad_z = z_in.Clone();
-    return opt_prob_interface->Objective_Function(*grad_u, *grad_z, u_in, z_in);
+  auto objective_given_state = [&](const HDSA::Vector<RealT> &u, const HDSA::Vector<RealT> &z) -> RealT {
+    HDSA::Ptr<HDSA::Vector<RealT>> grad_u = u.Clone();
+    opt_prob_interface->Misfit_Gradient(*grad_u, u, z);
+
+    const HDSA::Std_Vector<RealT> u_std = dynamic_cast<const HDSA::Std_Vector<RealT> &>(u);
+    HDSA::Std_Vector<RealT> grad_u_std = dynamic_cast<HDSA::Std_Vector<RealT> &>(*grad_u);
+
+    RealT value = static_cast<RealT>(0);
+    int m = u.Dimension();
+    for (int k = 0; k < m; ++k) {
+      const RealT diff = u_std(k) - std::pow(static_cast<RealT>(k) / static_cast<RealT>(m - 1) + static_cast<RealT>(1), static_cast<RealT>(3));
+      value += static_cast<RealT>(0.5) * diff * grad_u_std(k);
+    }
+    return value;
   };
 
   auto low_fidelity_state = [&](const HDSA::Vector<RealT> &z_in) -> HDSA::Ptr<HDSA::Vector<RealT>> {

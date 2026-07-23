@@ -427,7 +427,8 @@ namespace HDSA
 
       HDSA::Ptr<HDSA::Vector<RealT>> grad_u = u_opt_->Clone();
       HDSA::Ptr<HDSA::Vector<RealT>> grad_z = z_opt_->Clone();
-      opt_prob_interface_->Objective_Function(*grad_u, *grad_z, *u_plus_delta, *current_z_);
+      opt_prob_interface_->Misfit_Gradient(*grad_u, *u_plus_delta, *current_z_);
+      opt_prob_interface_->Regularization_Gradient(*grad_z, *u_plus_delta, *current_z_);
 
       HDSA::Ptr<HDSA::Vector<RealT>> z_tmp1 = z_opt_->Clone();
       current_disc_ops_->Apply_z_Jacobian_Transpose(*z_tmp1, *grad_u, *current_z_, current_t_);

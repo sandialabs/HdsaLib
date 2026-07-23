@@ -133,19 +133,9 @@ public:
     }
   }
 
-  RealT Objective_Function(HDSA::Vector<RealT> &grad_u, HDSA::Vector<RealT> &grad_z, const HDSA::Vector<RealT> &u, const HDSA::Vector<RealT> &z) const
+  void Regularization_Gradient(HDSA::Vector<RealT> &grad_z, const HDSA::Vector<RealT> &u, const HDSA::Vector<RealT> &z) const
   {
-    Misfit_Gradient(grad_u, u, z);
-    const HDSA::Std_Vector<RealT> u_std = dynamic_cast<const HDSA::Std_Vector<RealT> &>(u);
-    HDSA::Std_Vector<RealT> grad_u_std = dynamic_cast<HDSA::Std_Vector<RealT> &>(grad_u);
-    HDSA::Std_Vector<RealT> grad_z_std = dynamic_cast<HDSA::Std_Vector<RealT> &>(grad_z);
-    RealT value = static_cast<RealT>(0);
-    for (int k = 0; k < m_; ++k) {
-      const RealT diff = u_std(k) - std::pow((*x_)(k, 0) + static_cast<RealT>(1), static_cast<RealT>(3));
-      value += static_cast<RealT>(0.5) * diff * grad_u_std(k);
-      grad_z_std.Set_Entry(k, static_cast<RealT>(0)); // grad_z = 0
-    }
-    return value;
+    grad_z.Zeros();
   }
 };
 

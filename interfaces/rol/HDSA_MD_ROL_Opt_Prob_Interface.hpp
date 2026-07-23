@@ -108,17 +108,13 @@ namespace HDSA
       con_simopt_->solve(*c_rol_vec, *u_out_rol.rol_vec, *z_rol.rol_vec, tol);
     }
 
-    RealT Objective_Function(HDSA::Vector<RealT> &grad_u, HDSA::Vector<RealT> &grad_z, const HDSA::Vector<RealT> &u, const HDSA::Vector<RealT> &z) const {
-      HDSA::ROL_Vector<RealT> &grad_u_rol = dynamic_cast<HDSA::ROL_Vector<RealT> &>(grad_u);
+    void Regularization_Gradient(HDSA::Vector<RealT> &grad_z, const HDSA::Vector<RealT> &u, const HDSA::Vector<RealT> &z) const {
       HDSA::ROL_Vector<RealT> &grad_z_rol = dynamic_cast<HDSA::ROL_Vector<RealT> &>(grad_z);
       const HDSA::ROL_Vector<RealT> &u_rol = dynamic_cast<const HDSA::ROL_Vector<RealT> &>(u);
       const HDSA::ROL_Vector<RealT> &z_rol = dynamic_cast<const HDSA::ROL_Vector<RealT> &>(z);
       RealT tol = static_cast<RealT>(1.e-8);
       obj_simopt_->update(*u_rol.rol_vec, *z_rol.rol_vec, ROL::UpdateType::Temp);
-      const RealT value = obj_simopt_->value(*u_rol.rol_vec, *z_rol.rol_vec, tol);
-      obj_simopt_->gradient_1(*grad_u_rol.rol_vec, *u_rol.rol_vec, *z_rol.rol_vec, tol);
       obj_simopt_->gradient_2(*grad_z_rol.rol_vec, *u_rol.rol_vec, *z_rol.rol_vec, tol);
-      return value;
     }
   };
 
