@@ -7,6 +7,8 @@
 #ifndef HDSA_LINEAR_OPERATOR_HPP
 #define HDSA_LINEAR_OPERATOR_HPP
 
+#include "HDSA_Vector.hpp"
+
 namespace HDSA
 {
 

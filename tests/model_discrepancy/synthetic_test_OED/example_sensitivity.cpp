@@ -1,25 +1,36 @@
 /***********************************************************************
  HdsaLib - A library for Hyper-differential Sensitivity Analysis
- 
+
  Questions? Contact Joseph Hart (joshart@sandia.gov)
 ************************************************************************/
 
 #include "Teuchos_GlobalMPISession.hpp"
-#include <fstream>
 
-#include "HDSA_Stream.hpp"
+#include <algorithm>
+#include <cmath>
+#include <fstream>
+#include <iomanip>
+#include <iostream>
+#include <limits>
+#include <string>
+#include <vector>
+
 #include "HDSA_Comm.hpp"
+#include "HDSA_Dense_Matrix.hpp"
+#include "HDSA_Linear_Algebra.hpp"
+#include "HDSA_MultiVector.hpp"
 #include "HDSA_Ptr.hpp"
 #include "HDSA_Random_Number_Generator.hpp"
+#include "HDSA_Std_Vector.hpp"
+#include "HDSA_Stream.hpp"
 #include "HDSA_Vector.hpp"
-#include "HDSA_MultiVector.hpp"
-#include "HDSA_MD_Prior_Sampling.hpp"
+
+#include "HDSA_MD_Continuation_Update.hpp"
+#include "HDSA_MD_Hessian_Analysis.hpp"
+#include "HDSA_MD_OED.hpp"
 #include "HDSA_MD_Posterior_Data.hpp"
 #include "HDSA_MD_Posterior_Sampling.hpp"
-#include "HDSA_MD_Posterior_Vectors.hpp"
-#include "HDSA_MD_Hessian_Analysis.hpp"
-#include "HDSA_MD_Update.hpp"
-#include "HDSA_MD_Continuation_Update.hpp"
+
 #include "MD_Data_Interface_synthetic_test_OED.hpp"
 #include "MD_Opt_Prob_Interface_synthetic_test_OED.hpp"
 #include "MD_u_Prior_Interface_synthetic_test_OED.hpp"
@@ -27,205 +38,445 @@
 
 typedef double RealT;
 
-int main(int argc, char *argv[])
-{
+namespace {
+int Dense_Vector_Length(const HDSA::Dense_Matrix<RealT>& x) {
+  return x.Number_of_Rows() * x.Number_of_Columns();
+}
 
+RealT Dense_Vector_Entry_Column_Major(const HDSA::Dense_Matrix<RealT>& x, const int idx) {
+  const int rows = x.Number_of_Rows();
+  return x(idx % rows, idx / rows);
+}
+
+HDSA::Ptr<HDSA::Dense_Matrix<RealT>> Vector_To_Dense(const HDSA::Vector<RealT>& x) {
+  HDSA::Ptr<HDSA::Dense_Matrix<RealT>> y = HDSA::makePtr<HDSA::Dense_Matrix<RealT>>(x.Dimension(), 1);
+
+  y->Zeros();
+
+  for (int i = 0; i < x.Dimension(); ++i) {
+    y->Set_Entry(i, 0, x.Get_Entry(i));
+  }
+
+  return y;
+}
+
+HDSA::Ptr<HDSA::Dense_Matrix<RealT>> Append_Betas(const HDSA::Dense_Matrix<RealT>& old_betas,
+                                                  const HDSA::Dense_Matrix<RealT>& new_betas) {
+  const int old_len = Dense_Vector_Length(old_betas);
+  const int new_len = Dense_Vector_Length(new_betas);
+
+  HDSA::Ptr<HDSA::Dense_Matrix<RealT>> all_betas = HDSA::makePtr<HDSA::Dense_Matrix<RealT>>(old_len + new_len, 1);
+
+  all_betas->Zeros();
+
+  for (int i = 0; i < old_len; ++i) {
+    all_betas->Set_Entry(i, 0, Dense_Vector_Entry_Column_Major(old_betas, i));
+  }
+
+  for (int i = 0; i < new_len; ++i) {
+    all_betas->Set_Entry(old_len + i, 0, Dense_Vector_Entry_Column_Major(new_betas, i));
+  }
+
+  return all_betas;
+}
+
+void Evaluate_Synthetic_Discrepancy(HDSA::Vector<RealT>& D_out, const HDSA::Vector<RealT>& Z_in) {
+  HDSA_TEST_FOR_EXCEPTION(D_out.Dimension() != Z_in.Dimension(), std::logic_error,
+                          "Error in example_sensitivity::Evaluate_Synthetic_Discrepancy: "
+                          "D_out and Z_in dimensions are inconsistent."
+                              << std::endl);
+
+  for (int i = 0; i < Z_in.Dimension(); ++i) {
+    const RealT z_i = Z_in.Get_Entry(i);
+    D_out.Set_Entry(i, static_cast<RealT>(0.2) * z_i * z_i * z_i);
+  }
+}
+
+RealT M_z_Norm_Difference(const HDSA::Vector<RealT>& a, const HDSA::Vector<RealT>& b,
+                          const HDSA::MD_z_Prior_Interface<RealT>& z_prior_interface) {
+  HDSA::Ptr<HDSA::Vector<RealT>> diff = a.Clone();
+  diff->Set(a);
+  diff->Scaled_Plus(static_cast<RealT>(-1), b);
+
+  HDSA::Ptr<HDSA::Vector<RealT>> Mz_diff = a.Clone();
+  z_prior_interface.Apply_M_z(*Mz_diff, *diff);
+
+  const RealT norm_sq = diff->Dot(*Mz_diff);
+
+  return std::sqrt(std::max(static_cast<RealT>(0), norm_sq));
+}
+
+RealT Trace_Wz_Inverse_Mz(const HDSA::Vector<RealT>& prototype,
+                          const HDSA::MD_z_Prior_Interface<RealT>& z_prior_interface) {
+  const int n = prototype.Dimension();
+
+  RealT trace_val = static_cast<RealT>(0);
+
+  for (int i = 0; i < n; ++i) {
+    HDSA::Ptr<HDSA::Vector<RealT>> e_i = prototype.Clone();
+    e_i->Zeros();
+    e_i->Set_Entry(i, static_cast<RealT>(1));
+
+    HDSA::Ptr<HDSA::Vector<RealT>> Mz_e_i = prototype.Clone();
+    z_prior_interface.Apply_M_z(*Mz_e_i, *e_i);
+
+    HDSA::Ptr<HDSA::Vector<RealT>> Wz_inv_Mz_e_i = prototype.Clone();
+    z_prior_interface.Apply_W_z_Inverse(*Wz_inv_Mz_e_i, *Mz_e_i);
+
+    trace_val += Wz_inv_Mz_e_i->Get_Entry(i);
+  }
+
+  return trace_val;
+}
+
+RealT Vector_Difference_Norm(const HDSA::Vector<RealT>& a, const HDSA::Vector<RealT>& b) {
+  HDSA::Ptr<HDSA::Vector<RealT>> diff = a.Clone();
+  diff->Set(a);
+  diff->Scaled_Plus(static_cast<RealT>(-1), b);
+  return diff->Norm();
+}
+
+HDSA::Ptr<HDSA::Vector<RealT>> Low_Fidelity_State(const HDSA::MD_Opt_Prob_Interface<RealT>& opt_prob_interface,
+                                                  const HDSA::Vector<RealT>& z,
+                                                  const HDSA::Vector<RealT>& u_prototype) {
+  HDSA::Ptr<HDSA::Vector<RealT>> u = u_prototype.Clone();
+  opt_prob_interface.State_Solve(*u, z);
+  return u;
+}
+
+HDSA::Ptr<HDSA::Vector<RealT>> High_Fidelity_State(const HDSA::Vector<RealT>& z,
+                                                   const HDSA::Vector<RealT>& u_prototype) {
+  HDSA::Ptr<HDSA::Vector<RealT>> u = u_prototype.Clone();
+
+  for (int i = 0; i < z.Dimension(); ++i) {
+    const RealT z_i = z.Get_Entry(i);
+    u->Set_Entry(i, static_cast<RealT>(1.2) * z_i * z_i * z_i);
+  }
+
+  return u;
+}
+
+HDSA::Ptr<HDSA::Vector<RealT>> Synthetic_HF_Optimal_z(const HDSA::Vector<RealT>& z_lf_opt) {
+  HDSA::Ptr<HDSA::Vector<RealT>> z_hf = z_lf_opt.Clone();
+
+  const RealT scale = static_cast<RealT>(1) / std::cbrt(static_cast<RealT>(1.2));
+
+  for (int i = 0; i < z_lf_opt.Dimension(); ++i) {
+    z_hf->Set_Entry(i, scale * z_lf_opt.Get_Entry(i));
+  }
+
+  return z_hf;
+}
+
+RealT Objective_Given_State(const HDSA::MD_Opt_Prob_Interface<RealT>& opt_prob_interface, const HDSA::Vector<RealT>& u,
+                            const HDSA::Vector<RealT>& z) {
+  HDSA::Ptr<HDSA::Vector<RealT>> grad_u = u.Clone();
+  opt_prob_interface.Misfit_Gradient(*grad_u, u, z);
+
+  RealT value = static_cast<RealT>(0);
+
+  for (int i = 0; i < u.Dimension(); ++i) {
+    const RealT x_i = static_cast<RealT>(i) / static_cast<RealT>(u.Dimension() - 1);
+
+    const RealT target_i = std::pow(x_i + static_cast<RealT>(1), static_cast<RealT>(3));
+
+    const RealT diff = u.Get_Entry(i) - target_i;
+
+    value += static_cast<RealT>(0.5) * diff * grad_u->Get_Entry(i);
+  }
+
+  return value;
+}
+} // namespace
+
+int main(int argc, char* argv[]) {
   HDSA::nullstream bhs;
   Teuchos::GlobalMPISession mpiSession(&argc, &argv, &bhs);
+
   HDSA::Ptr<const HDSA::Comm<int>> comm = HDSA::makePtr<HDSA::Comm<int>>();
 
-  int num_random_numbers = 1.e5;
-  std::string random_number_file = "random_numbers.txt";
-  HDSA::Ptr<HDSA::Random_Number_Generator<RealT>> random_number_generator = HDSA::makePtr<HDSA::Random_Number_Generator<RealT>>(num_random_numbers, random_number_file);
+  const int num_random_numbers = 100000;
+  const std::string random_number_file = "random_numbers.txt";
 
-  HDSA::Ptr<HDSA::MD_Data_Interface<RealT>> data_interface = HDSA::makePtr<MD_Data_Interface_synthetic_test_OED<RealT>>(random_number_generator, comm);
-  HDSA::Ptr<HDSA::MD_Opt_Prob_Interface<RealT>> opt_prob_interface = HDSA::makePtr<MD_Opt_Prob_Interface_synthetic_test_OED<RealT>>();
-  HDSA::Ptr<HDSA::MD_u_Prior_Interface<RealT>> u_prior_interface = HDSA::makePtr<MD_u_Prior_Interface_synthetic_test_OED<RealT>>(random_number_generator);
-  HDSA::Ptr<HDSA::MD_z_Prior_Interface<RealT>> z_prior_interface = HDSA::makePtr<MD_z_Prior_Interface_synthetic_test_OED<RealT>>(random_number_generator);
+  HDSA::Ptr<HDSA::Random_Number_Generator<RealT>> random_number_generator =
+      HDSA::makePtr<HDSA::Random_Number_Generator<RealT>>(num_random_numbers, random_number_file);
 
-  HDSA::Ptr<HDSA::MD_Prior_Sampling<RealT>> prior_sampling = HDSA::makePtr<HDSA::MD_Prior_Sampling<RealT>>(data_interface, u_prior_interface, z_prior_interface);
+  HDSA::Ptr<HDSA::MD_Data_Interface<RealT>> data_interface =
+      HDSA::makePtr<MD_Data_Interface_synthetic_test_OED<RealT>>(random_number_generator, comm);
 
-  int num_prior_samples = 100;
-  HDSA::Ptr<HDSA::MultiVector<RealT>> prior_samples_at_z_opt = prior_sampling->Prior_Discrepancy_Samples_at_z_opt(num_prior_samples);
-  std::string name = "prior_discrepancy_evaluated_at_z_opt";
-  prior_samples_at_z_opt->Write_to_File(name);
+  HDSA::Ptr<HDSA::MD_Opt_Prob_Interface<RealT>> opt_prob_interface =
+      HDSA::makePtr<MD_Opt_Prob_Interface_synthetic_test_OED<RealT>>();
 
-  HDSA::Ptr<HDSA::MultiVector<RealT>> z = HDSA::makePtr<HDSA::MultiVector<RealT>>(3, *data_interface->Get_z_opt());
-  HDSA::Ptr<HDSA::Vector<RealT>> z0 = (*z)[0];
-  HDSA::Ptr<HDSA::Vector<RealT>> z1 = (*z)[1];
-  HDSA::Ptr<HDSA::Vector<RealT>> z2 = (*z)[2];
-  HDSA::Std_Vector<RealT> z0_std = dynamic_cast<HDSA::Std_Vector<RealT> &>(*z0);
-  HDSA::Std_Vector<RealT> z1_std = dynamic_cast<HDSA::Std_Vector<RealT> &>(*z1);
-  HDSA::Std_Vector<RealT> z2_std = dynamic_cast<HDSA::Std_Vector<RealT> &>(*z2);
-  int m = z0->Dimension();
-  HDSA::Ptr<HDSA::Dense_Matrix<RealT>> x = HDSA::makePtr<HDSA::Dense_Matrix<RealT>>(m, 1);
-  for (int k = 0; k < m; k++)
-  {
-    x->Set_Entry(k, 0, static_cast<RealT>(k) / static_cast<RealT>(m - 1));
-  }
-  RealT pi = 3.14159265358979323846;
-  for (int k = 0; k < m; k++)
-  {
-    z0_std.Set_Entry(k, (*x)(k, 0));
-    z1_std.Set_Entry(k, 1.0 + std::pow((*x)(k, 0), 2.0));
-    z2_std.Set_Entry(k, std::sin(2 * pi * (*x)(k, 0)));
-  }
+  HDSA::Ptr<HDSA::MD_u_Prior_Interface<RealT>> u_prior_interface =
+      HDSA::makePtr<MD_u_Prior_Interface_synthetic_test_OED<RealT>>(random_number_generator);
 
-  std::vector<HDSA::Ptr<HDSA::MultiVector<RealT>>> prior_samples = prior_sampling->Prior_Discrepancy_Samples(*z, num_prior_samples);
-  for (int i = 0; i < num_prior_samples; i++)
-  {
-    std::string name = "prior_discrepancy_sample_" + std::to_string(i + 1);
-    prior_samples[i]->Write_to_File(name);
-  }
+  HDSA::Ptr<HDSA::MD_z_Prior_Interface<RealT>> z_prior_interface =
+      HDSA::makePtr<MD_z_Prior_Interface_synthetic_test_OED<RealT>>(random_number_generator);
 
-  HDSA::Ptr<HDSA::MD_Posterior_Data<RealT>> post_data = HDSA::makePtr<HDSA::MD_Posterior_Data<RealT>>();
+  /*
+    Hessian analysis provides the reduced design basis V used by OED.
+  */
+  HDSA::Ptr<HDSA::MD_Hessian_Analysis<RealT>> hessian_analysis =
+      HDSA::makePtr<HDSA::MD_Hessian_Analysis<RealT>>(opt_prob_interface, z_prior_interface);
 
-  HDSA::Ptr<HDSA::MD_Posterior_Sampling<RealT>> post_sampling = HDSA::makePtr<HDSA::MD_Posterior_Sampling<RealT>>(data_interface, u_prior_interface, z_prior_interface);
-  RealT alpha_d = 1.e-5;
-  int num_post_samples = 100;
-  post_sampling->Compute_Posterior_Data(alpha_d, num_post_samples);
+  const int num_evals = 10;
+  const int oversampling = 10;
 
-  std::vector<HDSA::Ptr<HDSA::Vector<RealT>>> z_test;
-  z_test.resize(3);
-  z_test[0] = z0->Clone();
-  z_test[0]->Set(*(*data_interface->Get_Z())[0]);
-  z_test[1] = z0->Clone();
-  z_test[1]->Set(*(*data_interface->Get_Z())[1]);
-  z_test[2] = z0->Clone();
-  HDSA::Std_Vector<RealT> ztest2_std = dynamic_cast<HDSA::Std_Vector<RealT> &>(*z_test[2]);
-  for (int k = 0; k < m; k++)
-  {
-    ztest2_std.Set_Entry(k, 1.5);
-  }
-
-  std::vector<HDSA::Ptr<HDSA::MD_Posterior_Vectors<RealT>>> post_discrepancy_samples = post_sampling->Posterior_Discrepancy_Samples(z_test);
-
-  name = "posterior_discrepancy_mean_1.txt";
-  post_discrepancy_samples[0]->mean->Write_to_File(name);
-  name = "posterior_discrepancy_mean_2.txt";
-  post_discrepancy_samples[1]->mean->Write_to_File(name);
-  name = "posterior_discrepancy_mean_3.txt";
-  post_discrepancy_samples[2]->mean->Write_to_File(name);
-  name = "posterior_discrepancy_samples_1";
-  post_discrepancy_samples[0]->samples->Write_to_File(name);
-  name = "posterior_discrepancy_samples_2";
-  post_discrepancy_samples[1]->samples->Write_to_File(name);
-  name = "posterior_discrepancy_samples_3";
-  post_discrepancy_samples[2]->samples->Write_to_File(name);
-
-  HDSA::Ptr<HDSA::MD_Hessian_Analysis<RealT>> hessian_analysis = HDSA::makePtr<HDSA::MD_Hessian_Analysis<RealT>>(opt_prob_interface, z_prior_interface);
-
-  int num_evals = 20;
-  int oversampling = 10;
   hessian_analysis->Compute_Hessian_GEVP(data_interface->Get_z_opt(), num_evals, oversampling);
 
-  // Standard Update
-  // HDSA::Ptr<HDSA::MD_Update<RealT>> update = HDSA::makePtr<HDSA::MD_Update<RealT>>(data_interface, u_prior_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis);
-  // HDSA::Ptr<HDSA::Vector<RealT>> z_k = update->Posterior_Update_Mean(); 
+  /*
+    OED setup and offline reduced matrix construction.
+  */
+  HDSA::Ptr<HDSA::MD_OED<RealT>> md_oed = HDSA::makePtr<HDSA::MD_OED<RealT>>(
+      opt_prob_interface, data_interface, u_prior_interface, z_prior_interface, hessian_analysis);
 
-  // Continuation Update
-  int num_continuation_steps = 3;
-  HDSA::Ptr<HDSA::MD_Continuation_Update<RealT>> update = HDSA::makePtr<HDSA::MD_Continuation_Update<RealT>>(data_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis, num_continuation_steps);
-  HDSA::Ptr<HDSA::Vector<RealT>> u_k = HDSA::makePtr<HDSA::Std_Vector<RealT>>(m, random_number_generator, comm);
-  HDSA::Ptr<HDSA::Vector<RealT>> z_k = HDSA::makePtr<HDSA::Std_Vector<RealT>>(m, random_number_generator, comm);
-  HDSA::Ptr<HDSA::Vector<RealT>> beta_k = HDSA::makePtr<HDSA::Std_Vector<RealT>>(num_evals, random_number_generator, comm);
-  update->Posterior_Update_Mean(*u_k, *z_k, *beta_k);
-  name = "posterior_update_mean.txt";
-  z_k->Write_to_File(name);
+  md_oed->Offline_Computation();
 
-  // std::cout << std::scientific << std::setprecision(3);
+  const int r = md_oed->Get_Reduced_Dimension();
 
-  auto objective_given_state = [&](const HDSA::Vector<RealT> &u, const HDSA::Vector<RealT> &z) -> RealT {
-    HDSA::Ptr<HDSA::Vector<RealT>> grad_u = u.Clone();
-    opt_prob_interface->Misfit_Gradient(*grad_u, u, z);
+  const typename HDSA::MD_OED<RealT>::Offline_Data& offline = md_oed->Get_Offline_Data();
 
-    const HDSA::Std_Vector<RealT> u_std = dynamic_cast<const HDSA::Std_Vector<RealT> &>(u);
-    HDSA::Std_Vector<RealT> grad_u_std = dynamic_cast<HDSA::Std_Vector<RealT> &>(*grad_u);
+  HDSA_TEST_FOR_EXCEPTION(!offline.Is_Initialized(), std::logic_error,
+                          "Error in example_sensitivity: OED offline data were not initialized." << std::endl);
 
-    RealT value = static_cast<RealT>(0);
-    int m = u.Dimension();
-    for (int k = 0; k < m; ++k) {
-      const RealT diff = u_std(k) - std::pow(static_cast<RealT>(k) / static_cast<RealT>(m - 1) + static_cast<RealT>(1), static_cast<RealT>(3));
-      value += static_cast<RealT>(0.5) * diff * grad_u_std(k);
+  /*
+    Sequential OED parameters.
+  */
+  const int num_oed_steps = 5;
+  const RealT alpha_d = static_cast<RealT>(1e-5);
+
+  const RealT alpha_k_denom = Trace_Wz_Inverse_Mz(*data_interface->Get_z_opt(), *z_prior_interface);
+
+  typename HDSA::MD_OED<RealT>::SPG_Options spg_options;
+  spg_options.max_iter = 10;
+  spg_options.pg_tol = static_cast<RealT>(1e-8);
+  spg_options.armijo_c = static_cast<RealT>(1e-4);
+  spg_options.backtrack_factor = static_cast<RealT>(0.5);
+  spg_options.max_backtracks = 30;
+  spg_options.nonmonotone_window = 5;
+  spg_options.verbosity = false;
+
+  HDSA::Dense_Matrix<RealT> beta_0(r, 1);
+  beta_0.Zeros();
+
+  for (int i = 0; i < r; ++i) {
+    const RealT sign = (i % 2 == 0) ? static_cast<RealT>(1) : static_cast<RealT>(-1);
+
+    beta_0.Set_Entry(i, 0, sign * static_cast<RealT>(3e-2) * static_cast<RealT>(i + 1) / static_cast<RealT>(r));
+  }
+
+  HDSA::Ptr<HDSA::Dense_Matrix<RealT>> betas = HDSA::makePtr<HDSA::Dense_Matrix<RealT>>(0, 1);
+
+  HDSA::Ptr<HDSA::MultiVector<RealT>> Z_accum =
+      HDSA::makePtr<HDSA::MultiVector<RealT>>(0, *data_interface->Get_z_opt());
+
+  HDSA::Ptr<HDSA::MultiVector<RealT>> D_accum =
+      HDSA::makePtr<HDSA::MultiVector<RealT>>(0, *data_interface->Get_u_opt());
+
+  std::vector<HDSA::Ptr<HDSA::Vector<RealT>>> z_bars;
+  std::vector<HDSA::Ptr<HDSA::Vector<RealT>>> selected_designs;
+
+  HDSA::Ptr<HDSA::Vector<RealT>> z_lofi = data_interface->Get_z_opt()->Clone();
+
+  z_lofi->Set(*data_interface->Get_z_opt());
+
+  HDSA::Ptr<HDSA::Vector<RealT>> current_z_bar = HDSA::nullPtr;
+  HDSA::Ptr<HDSA::Dense_Matrix<RealT>> current_beta_bar = HDSA::nullPtr;
+
+  std::cout << std::scientific << std::setprecision(6);
+  std::cout << "\n=====================================================" << std::endl;
+  std::cout << "Beginning sequential OED workflow" << std::endl;
+  std::cout << "Reduced dimension r = " << r << std::endl;
+  std::cout << "Number of OED steps = " << num_oed_steps << std::endl;
+  std::cout << "=====================================================" << std::endl;
+
+  for (int step = 0; step < num_oed_steps; ++step) {
+    std::cout << "\nOED step " << step + 1 << " / " << num_oed_steps << std::endl;
+    std::cout << "-----------------------------------------------------" << std::endl;
+
+    HDSA::Ptr<HDSA::Vector<RealT>> z_p;
+
+    if (step == 0) {
+      /*
+        Start at the low-fidelity optimum.
+      */
+      z_p = z_lofi->Clone();
+      z_p->Set(*z_lofi);
+
+      std::cout << "Using initial design z_lofi = z_opt." << std::endl;
+    } else {
+      HDSA::Ptr<HDSA::Vector<RealT>> radius_reference;
+
+      if (step == 1) {
+        radius_reference = z_lofi;
+      } else {
+        radius_reference = z_bars[step - 2];
+      }
+
+      const RealT prev_z_distance = M_z_Norm_Difference(*current_z_bar, *radius_reference, *z_prior_interface);
+
+      const RealT alpha_k = prev_z_distance * prev_z_distance / alpha_k_denom;
+
+      const RealT constr_radius = prev_z_distance;
+
+      std::cout << "Previous posterior movement radius = " << constr_radius << std::endl;
+
+      std::cout << "OED covariance coefficient alpha_k = " << alpha_k << std::endl;
+
+      md_oed->Set_Covariance_Coefficient(alpha_k);
+
+      typename HDSA::MD_OED<RealT>::Seq_Design_Result seq_result =
+          md_oed->Generate_Seq_Optimal_Design(beta_0, alpha_d, *betas, *current_beta_bar, constr_radius, spg_options);
+
+      betas = Append_Betas(*betas, *seq_result.beta_new);
+
+      const RealT max_violation =
+          md_oed->Evaluate_Max_Ellipsoid_Ball_Violation(*seq_result.beta_new, *current_beta_bar, constr_radius);
+
+      std::cout << "Sequential OED final objective = " << seq_result.optimizer_info.final_objective << std::endl;
+
+      std::cout << "Sequential OED projected-gradient norm = " << seq_result.optimizer_info.projected_gradient_norm
+                << std::endl;
+
+      std::cout << "Sequential OED max ellipsoid violation = " << max_violation << std::endl;
+
+      z_p = (*seq_result.Z_new)[0]->Clone();
+      z_p->Set(*(*seq_result.Z_new)[0]);
     }
-    return value;
-  };
 
-  auto low_fidelity_state = [&](const HDSA::Vector<RealT> &z_in) -> HDSA::Ptr<HDSA::Vector<RealT>> {
-    HDSA::Ptr<HDSA::Vector<RealT>> u_lf = data_interface->Get_u_opt()->Clone();
-    opt_prob_interface->State_Solve(*u_lf, z_in);
-    return u_lf;
-  };
+    selected_designs.push_back(z_p);
 
-  auto high_fidelity_state = [&](const HDSA::Vector<RealT> &z_in) -> HDSA::Ptr<HDSA::Vector<RealT>> {
-    HDSA::Ptr<HDSA::Vector<RealT>> u_hf = data_interface->Get_u_opt()->Clone();
-    const HDSA::Std_Vector<RealT> &z_std = dynamic_cast<const HDSA::Std_Vector<RealT> &>(z_in);
-    HDSA::Std_Vector<RealT> &u_hf_std = dynamic_cast<HDSA::Std_Vector<RealT> &>(*u_hf);
+    /*
+      Evaluate synthetic discrepancy D(z) = 0.2 z^3 and append data.
+    */
+    HDSA::Ptr<HDSA::Vector<RealT>> D_p = data_interface->Get_u_opt()->Clone();
 
-    for (int k = 0; k < z_in.Dimension(); ++k) {
-      u_hf_std.Set_Entry(k, static_cast<RealT>(1.2) * std::pow(z_std(k), static_cast<RealT>(3)));
-    }
-    return u_hf;
-  };
+    Evaluate_Synthetic_Discrepancy(*D_p, *z_p);
 
-  auto hf_optimal_z_for_current_synthetic_model = [&](const HDSA::Vector<RealT> &z_template) -> HDSA::Ptr<HDSA::Vector<RealT>> {
-    HDSA::Ptr<HDSA::Vector<RealT>> z_hf_opt = z_template.Clone();
-    const HDSA::Std_Vector<RealT> &z_lf_opt_std = dynamic_cast<const HDSA::Std_Vector<RealT> &>(*data_interface->Get_z_opt());
-    HDSA::Std_Vector<RealT> &z_hf_opt_std = dynamic_cast<HDSA::Std_Vector<RealT> &>(*z_hf_opt);
-    const int m = z_template.Dimension();
-    const RealT scale = (1.0) / std::cbrt((1.2));
-    for (int k = 0; k < m; ++k) {
-      // Note that z_HF_opt = (x + 1) / cbrt(1.2)
-      z_hf_opt_std.Set_Entry(k, scale * z_lf_opt_std(k));
-    }
+    Z_accum->push_back(z_p);
+    D_accum->push_back(D_p);
 
-    return z_hf_opt;
-  };
+    data_interface->Set_Z_and_D(Z_accum, D_accum);
 
+    std::cout << "Accumulated data points = " << Z_accum->Number_of_Vectors() << std::endl;
+
+    /*
+      Recompute posterior data for the accumulated design/discrepancy set.
+    */
+    HDSA::Ptr<HDSA::MD_Posterior_Sampling<RealT>> post_sampling =
+        HDSA::makePtr<HDSA::MD_Posterior_Sampling<RealT>>(data_interface, u_prior_interface, z_prior_interface);
+
+    int num_post_samples = 0;
+
+    post_sampling->Compute_Posterior_Data(alpha_d, num_post_samples);
+
+    /*
+      Continuation update of the optimization solution.
+    */
+    const int num_continuation_steps = 3;
+
+    HDSA::Ptr<HDSA::MD_Continuation_Update<RealT>> cont_update = HDSA::makePtr<HDSA::MD_Continuation_Update<RealT>>(
+        data_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis, num_continuation_steps);
+
+    HDSA::Ptr<HDSA::Vector<RealT>> u_k = data_interface->Get_u_opt()->Clone();
+
+    HDSA::Ptr<HDSA::Vector<RealT>> z_k = data_interface->Get_z_opt()->Clone();
+
+    HDSA::Ptr<HDSA::Vector<RealT>> beta_k = HDSA::makePtr<HDSA::Std_Vector<RealT>>(r, random_number_generator, comm);
+
+    cont_update->Posterior_Update_Mean(*u_k, *z_k, *beta_k);
+
+    current_z_bar = z_k;
+    current_beta_bar = Vector_To_Dense(*beta_k);
+
+    z_bars.push_back(current_z_bar);
+
+    const std::string selected_name = "sequential_oed_design_" + std::to_string(step + 1) + ".txt";
+
+    const std::string posterior_name = "sequential_oed_posterior_z_bar_" + std::to_string(step + 1) + ".txt";
+
+    z_p->Write_to_File(selected_name);
+    current_z_bar->Write_to_File(posterior_name);
+
+    std::cout << "Posterior beta_bar norm = " << current_beta_bar->Number_of_Rows()
+              << "-vector, Euclidean norm not printed here." << std::endl;
+  }
+
+  HDSA_TEST_FOR_EXCEPTION(current_z_bar == HDSA::nullPtr, std::logic_error,
+                          "Error in example_sensitivity: sequential OED did not produce a final z_bar." << std::endl);
+
+  current_z_bar->Write_to_File("sequential_oed_final_posterior_z_bar.txt");
+
+  /*
+    Compare low-fidelity, sequentially updated, and synthetic high-fidelity
+    objective values.
+  */
   HDSA::Ptr<const HDSA::Vector<RealT>> z_lf_opt = data_interface->Get_z_opt();
 
-  HDSA::Ptr<HDSA::Vector<RealT>> u_lf_at_lf_opt = low_fidelity_state(*z_lf_opt);
+  HDSA::Ptr<HDSA::Vector<RealT>> z_hf_opt = Synthetic_HF_Optimal_z(*z_lf_opt);
 
-  HDSA::Ptr<HDSA::Vector<RealT>> u_lf_at_updated = low_fidelity_state(*z_k);
-  HDSA::Ptr<HDSA::Vector<RealT>> u_hf_at_lf_opt = high_fidelity_state(*z_lf_opt);
-  HDSA::Ptr<HDSA::Vector<RealT>> u_hf_at_updated = high_fidelity_state(*z_k);
+  HDSA::Ptr<HDSA::Vector<RealT>> u_lf_at_lf_opt =
+      Low_Fidelity_State(*opt_prob_interface, *z_lf_opt, *data_interface->Get_u_opt());
 
-  RealT J_lf_at_lf_opt = objective_given_state(*u_lf_at_lf_opt, *z_lf_opt);
-  RealT J_lf_at_updated = objective_given_state(*u_lf_at_updated, *z_k);
-  RealT J_hf_at_lf_opt = objective_given_state(*u_hf_at_lf_opt, *z_lf_opt);
-  RealT J_hf_at_updated = objective_given_state(*u_hf_at_updated, *z_k);
+  HDSA::Ptr<HDSA::Vector<RealT>> u_lf_at_updated =
+      Low_Fidelity_State(*opt_prob_interface, *current_z_bar, *data_interface->Get_u_opt());
 
-  HDSA::Ptr<HDSA::Vector<RealT>> z_hf_opt = hf_optimal_z_for_current_synthetic_model(*z_lf_opt);
-  HDSA::Ptr<HDSA::Vector<RealT>> u_hf_at_hf_opt = high_fidelity_state(*z_hf_opt);
-  RealT J_hf_at_hf_opt = objective_given_state(*u_hf_at_hf_opt, *z_hf_opt);
-  HDSA::Ptr<HDSA::Vector<RealT>> diff_lf_to_hf_opt = z_lf_opt->Clone();
-  diff_lf_to_hf_opt->Set(*z_lf_opt);
-  diff_lf_to_hf_opt->Scaled_Plus(-1.0, *z_hf_opt);
+  HDSA::Ptr<HDSA::Vector<RealT>> u_hf_at_lf_opt = High_Fidelity_State(*z_lf_opt, *data_interface->Get_u_opt());
 
-  HDSA::Ptr<HDSA::Vector<RealT>> diff_updated_to_hf_opt = z_k->Clone();
-  diff_updated_to_hf_opt->Set(*z_k);
-  diff_updated_to_hf_opt->Scaled_Plus(-1.0, *z_hf_opt);
+  HDSA::Ptr<HDSA::Vector<RealT>> u_hf_at_updated = High_Fidelity_State(*current_z_bar, *data_interface->Get_u_opt());
 
-  std::cout << "-----------------------------------------------------" << std::endl;
-  std::cout << "Actual objective comparison" << std::endl;
-  std::cout << "\nJ_LF at low-fidelity optimum:       "
-            << J_lf_at_lf_opt << std::endl;
-  std::cout << "J_LF at updated solution:           "
-            << J_lf_at_updated << std::endl;
-  std::cout << "\nJ_HF at low-fidelity optimum:       "
-            << J_hf_at_lf_opt << std::endl;
-  std::cout << "J_HF at updated solution:           "
-            << J_hf_at_updated << std::endl;
-  std::cout << "J_HF at exact HF optimum:           "
-            << J_hf_at_hf_opt << std::endl;
+  HDSA::Ptr<HDSA::Vector<RealT>> u_hf_at_hf_opt = High_Fidelity_State(*z_hf_opt, *data_interface->Get_u_opt());
+
+  const RealT J_lf_at_lf_opt = Objective_Given_State(*opt_prob_interface, *u_lf_at_lf_opt, *z_lf_opt);
+
+  const RealT J_lf_at_updated = Objective_Given_State(*opt_prob_interface, *u_lf_at_updated, *current_z_bar);
+
+  const RealT J_hf_at_lf_opt = Objective_Given_State(*opt_prob_interface, *u_hf_at_lf_opt, *z_lf_opt);
+
+  const RealT J_hf_at_updated = Objective_Given_State(*opt_prob_interface, *u_hf_at_updated, *current_z_bar);
+
+  const RealT J_hf_at_hf_opt = Objective_Given_State(*opt_prob_interface, *u_hf_at_hf_opt, *z_hf_opt);
+
+  const RealT dist_lf_to_hf = Vector_Difference_Norm(*z_lf_opt, *z_hf_opt);
+
+  const RealT dist_updated_to_hf = Vector_Difference_Norm(*current_z_bar, *z_hf_opt);
+
+  std::cout << "\n=====================================================" << std::endl;
+  std::cout << "Sequential OED objective comparison" << std::endl;
+  std::cout << "=====================================================" << std::endl;
+
+  std::cout << "\nJ_LF at low-fidelity optimum:       " << J_lf_at_lf_opt << std::endl;
+
+  std::cout << "J_LF at sequential OED update:      " << J_lf_at_updated << std::endl;
+
+  std::cout << "\nJ_HF at low-fidelity optimum:       " << J_hf_at_lf_opt << std::endl;
+
+  std::cout << "J_HF at sequential OED update:      " << J_hf_at_updated << std::endl;
+
+  std::cout << "J_HF at exact synthetic HF optimum: " << J_hf_at_hf_opt << std::endl;
 
   std::cout << "\nHF improvement factor:              "
-    << 100.0 * (1.0 - J_hf_at_updated / J_hf_at_lf_opt) << "%" << std::endl;
+            << static_cast<RealT>(100) * (static_cast<RealT>(1) - J_hf_at_updated / J_hf_at_lf_opt) << "%" << std::endl;
 
-  std::cout << "\n||z_LF_opt - z_HF_opt||:            "
-            << diff_lf_to_hf_opt->Norm() << std::endl;
-  std::cout << "||z_updated - z_HF_opt||:           "
-            << diff_updated_to_hf_opt->Norm() << std::endl;
-  
+  std::cout << "\n||z_LF_opt - z_HF_opt||:            " << dist_lf_to_hf << std::endl;
+
+  std::cout << "||z_updated - z_HF_opt||:           " << dist_updated_to_hf << std::endl;
+
+  std::cout << "\nSelected OED design points written to:" << std::endl;
+
+  for (int step = 0; step < num_oed_steps; ++step) {
+    std::cout << "  sequential_oed_design_" << step + 1 << ".txt" << std::endl;
+  }
+
+  std::cout << "\nPosterior z_bar history written to:" << std::endl;
+
+  for (int step = 0; step < num_oed_steps; ++step) {
+    std::cout << "  sequential_oed_posterior_z_bar_" << step + 1 << ".txt" << std::endl;
+  }
+
+  std::cout << "  sequential_oed_final_posterior_z_bar.txt" << std::endl;
+
+  std::cout << "=====================================================" << std::endl;
+
   return 0;
 }
