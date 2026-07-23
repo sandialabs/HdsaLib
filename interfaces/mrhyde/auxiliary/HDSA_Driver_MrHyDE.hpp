@@ -664,15 +664,6 @@ public:
         output_writer->Write_Hessian_Eigenvalues(evals);
       }
 
-      if (use_continuation) {
-        *outStream << "Performing continuation..." << std::endl;
-        HDSA::Ptr<HDSA::MD_Continuation_Update<ScalarT>> update = HDSA::makePtr<HDSA::MD_Continuation_Update<ScalarT>>(post_sampling, hessian_analysis, 3);
-      } else {
-        *outStream << "Performing normal optimal solution update..." << std::endl;
-        *outStream << use_continuation << std::endl;
-        HDSA::Ptr<HDSA::MD_Update<ScalarT>> update = HDSA::makePtr<HDSA::MD_Update<ScalarT>>(data_interface, u_prior_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis);
-      }
-
       if (num_posterior_samples > 0)
       {
         if (hdsa_verbosity > 1)
@@ -680,17 +671,45 @@ public:
           *outStream << "Beginning posterior optimal solution analysis" << std::endl;
         }
 
-        HDSA::Ptr<HDSA::MD_Posterior_Vectors<ScalarT>> posterior_update_samples = update->Posterior_Update_Samples();
+        HDSA::Ptr<HDSA::MD_Posterior_Vectors<ScalarT>> posterior_update_samples;
+        if (use_continuation)
+        {
+          *outStream << "Performing continuation optimal solution update is now yet supported in the MrHyDE interface..." << std::endl;
+          //*outStream << "Performing continuation optimal solution update..." << std::endl;
+          HDSA::Ptr<HDSA::MD_Continuation_Update<ScalarT>> update = HDSA::makePtr<HDSA::MD_Continuation_Update<ScalarT>>(data_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis, 3);
+          //posterior_update_samples = update->Posterior_Update_Samples();
+        }
+        else
+        {
+          //*outStream << "Performing linearization optimal solution update..." << std::endl;
+          HDSA::Ptr<HDSA::MD_Update<ScalarT>> update = HDSA::makePtr<HDSA::MD_Update<ScalarT>>(data_interface, u_prior_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis);
+          posterior_update_samples = update->Posterior_Update_Samples();
+        }
+
         output_writer->Write_Optimal_Solution_Update(posterior_update_samples);
 
         if (hdsa_verbosity > 0)
         {
-          *outStream << "CHANGE: z_update_mean norm = " << posterior_update_samples->mean->Norm() << std::endl;
+          *outStream << "z_update_mean norm = " << posterior_update_samples->mean->Norm() << std::endl;
         }
       }
       else
       {
-        HDSA::Ptr<HDSA::Vector<ScalarT>> z_update_mean = update->Posterior_Update_Mean();
+        HDSA::Ptr<HDSA::Vector<ScalarT>> z_update_mean;
+        if (use_continuation)
+        {
+          *outStream << "Performing continuation optimal solution update is now yet supported in the MrHyDE interface..." << std::endl;
+          //*outStream << "Performing continuation optimal solution update..." << std::endl;
+          HDSA::Ptr<HDSA::MD_Continuation_Update<ScalarT>> update = HDSA::makePtr<HDSA::MD_Continuation_Update<ScalarT>>(data_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis, 3);
+          //z_update_mean = update->Posterior_Update_Mean();
+        }
+        else
+        {
+          //*outStream << "Performing linearization optimal solution update..." << std::endl;
+          HDSA::Ptr<HDSA::MD_Update<ScalarT>> update = HDSA::makePtr<HDSA::MD_Update<ScalarT>>(data_interface, u_prior_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis);
+          z_update_mean = update->Posterior_Update_Mean();
+        }
+
         output_writer->Write_Optimal_Solution_Update(z_update_mean);
 
         if (hdsa_verbosity > 0)
