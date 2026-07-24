@@ -1,6 +1,6 @@
 /***********************************************************************
  HdsaLib - A library for Hyper-differential Sensitivity Analysis
- 
+
  Questions? Contact Joseph Hart (joshart@sandia.gov)
 ************************************************************************/
 
@@ -45,6 +45,9 @@ int main(int argc, char *argv[])
 
   Teuchos::GlobalMPISession mpiSession(&argc, &argv);
 
+  HDSA::Ptr<const HDSA::Comm<int>> comm = HDSA::makePtr<HDSA::Comm<int>>();
+  HDSA::Ptr<HDSA::Random_Number_Generator<RealT>> random_number_generator = HDSA::makePtr<HDSA::Random_Number_Generator<RealT>>(comm);
+
   // This little trick lets us print to std::cout only if a (dummy) command-line argument is provided.
   int iprint = argc - 1;
   ROL::Ptr<std::ostream> outStream;
@@ -78,8 +81,7 @@ int main(int argc, char *argv[])
   RealT alpha_z = parlist->sublist("MD Prior").get("alpha_z", 1.0 / std::pow(100.0, 2.0));
   RealT beta_z = parlist->sublist("MD Prior").get("beta_z", 1.e-2);
   RealT alpha_d = parlist->sublist("MD Prior").get("alpha_d", 1.e-3);
-  HDSA::Ptr<HDSA::Random_Number_Generator<RealT>> random_number_generator = HDSA::makePtr<HDSA::Random_Number_Generator<RealT>>();
-  HDSA::Ptr<HDSA::MD_Data_Interface<RealT>> data_interface = HDSA::makePtr<Data_Interface_SimOptTestProb<RealT>>(m);
+  HDSA::Ptr<HDSA::MD_Data_Interface<RealT>> data_interface = HDSA::makePtr<Data_Interface_SimOptTestProb<RealT>>(m, random_number_generator, comm);
   HDSA::Ptr<HDSA::MD_u_Prior_Interface<RealT>> u_prior_interface = HDSA::makePtr<Elliptic_u_Prior_Interface_SimOptTestProb<RealT>>(alpha_u, beta_u, m);
   HDSA::Ptr<HDSA::MD_z_Prior_Interface<RealT>> z_prior_interface = HDSA::makePtr<Elliptic_z_Prior_Interface_SimOptTestProb<RealT>>(alpha_z, beta_z, m, random_number_generator);
 
@@ -167,26 +169,13 @@ int main(int argc, char *argv[])
   oversampling = parlist->sublist("MD Hessian Analysis").get("Oversampling Factor", 10);
   hessian_analysis->Compute_Hessian_GEVP(data_interface->Get_z_opt(), num_evals, oversampling);
 
-  bool use_continuation = parlist->sublist("MD Continuation Update").get("Use Continuation", false);
-  if (use_continuation) {
-    int num_continuation_steps = parlist->sublist("MD Continuation Update").get("Number of Continuation Steps", 3);
-    HDSA::Ptr<const HDSA::Comm<int>> comm = HDSA::makePtr<HDSA::Comm<int>>();
-    HDSA::Ptr<HDSA::MD_Continuation_Update<RealT>> update = HDSA::makePtr<HDSA::MD_Continuation_Update<RealT>>(data_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis, num_continuation_steps);
-    HDSA::Ptr<HDSA::Vector<RealT>> u_k = data_interface->Get_u_opt()->Clone();
-    HDSA::Ptr<HDSA::Vector<RealT>> z_k = data_interface->Get_z_opt()->Clone();
-    HDSA::Ptr<HDSA::Vector<RealT>> beta_k = HDSA::makePtr<HDSA::Std_Vector<RealT>>(num_evals, random_number_generator, comm);
-    update->Posterior_Update_Mean(*u_k, *z_k, *beta_k); // error occurs here
-    name = "posterior_update_continuation_mean.txt";
-    z_k->Write_to_File(name);
-  } 
-  else {
-    HDSA::Ptr<HDSA::MD_Update<RealT>> update = HDSA::makePtr<HDSA::MD_Update<RealT>>(data_interface, u_prior_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis);
-    HDSA::Ptr<HDSA::MD_Posterior_Vectors<RealT>> posterior_update_samples = update->Posterior_Update_Samples();
-    name = "posterior_update_mean.txt";
-    posterior_update_samples->mean->Write_to_File(name);
-    name = "posterior_update_samples";
-    posterior_update_samples->samples->Write_to_File(name);
-  }
+  int num_continuation_steps = parlist->sublist("MD Continuation Update").get("Number of Continuation Steps", 0);
+  HDSA::Ptr<HDSA::MD_Update<RealT>> update = HDSA::makePtr<HDSA::MD_Update<RealT>>(data_interface, u_prior_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis, num_continuation_steps);
+  HDSA::Ptr<HDSA::MD_Posterior_Vectors<RealT>> posterior_update_samples = update->Posterior_Update_Samples();
+  name = "posterior_update_mean.txt";
+  posterior_update_samples->mean->Write_to_File(name);
+  name = "posterior_update_samples";
+  posterior_update_samples->samples->Write_to_File(name);
 
   return 0;
 }

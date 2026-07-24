@@ -107,7 +107,7 @@ public:
     int num_random_numbers = data_load_list.get<int>("num_random_numbers", 0);
 
     HDSA::Ptr<HDSA::Random_Number_Generator<ScalarT>> random_number_generator;
-    HDSA::Ptr<HDSA::Comm<int>> hdsa_comm = HDSA::makePtr<HDSA::Comm<int>>(comm_);
+    HDSA::Ptr<const HDSA::Comm<int>> hdsa_comm = HDSA::makePtr<HDSA::Comm<int>>(comm_);
     if (random_number_file == "error")
     {
       random_number_generator = HDSA::makePtr<HDSA::Random_Number_Generator<ScalarT>>(hdsa_comm);
@@ -198,11 +198,11 @@ public:
     int num_prior_samples = HDSAsettings.sublist("Configuration").get<int>("num_prior_samples", 0);
     int num_posterior_samples = HDSAsettings.sublist("Configuration").get<int>("num_posterior_samples", 0);
     int prior_num_state_solves = HDSAsettings.sublist("Configuration").get<int>("prior_num_state_solves", 0);
+    int num_continuation_steps = HDSAsettings.sublist("Configuration").get<int>("num_continuation_steps", 0);
     int hdsa_verbosity = HDSAsettings.sublist("Configuration").get<int>("verbosity", 0);
     bool execute_prior_discrepancy_sampling = HDSAsettings.sublist("Configuration").get<bool>("execute_prior_discrepancy_sampling", false);
     bool execute_posterior_discrepancy_sampling = HDSAsettings.sublist("Configuration").get<bool>("execute_posterior_discrepancy_sampling", false);
     bool execute_optimal_solution_update = HDSAsettings.sublist("Configuration").get<bool>("execute_optimal_solution_update", false);
-    bool use_continuation = HDSAsettings.sublist("Configuration").get<bool>("use_continuation", false);
 
     std::string prior_computation = HDSAsettings.sublist("Prior Computation").get<std::string>("State Prior", "Numeric_Laplacian");
     bool use_direct_solvers = HDSAsettings.sublist("Prior Computation").get<bool>("use_direct_solvers", false);
@@ -251,7 +251,7 @@ public:
     ///////////////////////////////////////////////////////////////////////////////////////////////////
 
     HDSA::Ptr<HDSA::Random_Number_Generator<ScalarT>> random_number_generator;
-    HDSA::Ptr<HDSA::Comm<int>> hdsa_comm = HDSA::makePtr<HDSA::Comm<int>>(comm_);
+    HDSA::Ptr<const HDSA::Comm<int>> hdsa_comm = HDSA::makePtr<HDSA::Comm<int>>(comm_);
     if (random_number_file == "error")
     {
       random_number_generator = HDSA::makePtr<HDSA::Random_Number_Generator<ScalarT>>(hdsa_comm);
@@ -664,6 +664,8 @@ public:
         output_writer->Write_Hessian_Eigenvalues(evals);
       }
 
+      HDSA::Ptr<HDSA::MD_Update<ScalarT>> update = HDSA::makePtr<HDSA::MD_Update<ScalarT>>(data_interface, u_prior_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis, num_continuation_steps);
+
       if (num_posterior_samples > 0)
       {
         if (hdsa_verbosity > 1)
@@ -671,21 +673,7 @@ public:
           *outStream << "Beginning posterior optimal solution analysis" << std::endl;
         }
 
-        HDSA::Ptr<HDSA::MD_Posterior_Vectors<ScalarT>> posterior_update_samples;
-        if (use_continuation)
-        {
-          *outStream << "Performing continuation optimal solution update is now yet supported in the MrHyDE interface..." << std::endl;
-          //*outStream << "Performing continuation optimal solution update..." << std::endl;
-          HDSA::Ptr<HDSA::MD_Continuation_Update<ScalarT>> update = HDSA::makePtr<HDSA::MD_Continuation_Update<ScalarT>>(data_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis, 3);
-          //posterior_update_samples = update->Posterior_Update_Samples();
-        }
-        else
-        {
-          //*outStream << "Performing linearization optimal solution update..." << std::endl;
-          HDSA::Ptr<HDSA::MD_Update<ScalarT>> update = HDSA::makePtr<HDSA::MD_Update<ScalarT>>(data_interface, u_prior_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis);
-          posterior_update_samples = update->Posterior_Update_Samples();
-        }
-
+        HDSA::Ptr<HDSA::MD_Posterior_Vectors<ScalarT>> posterior_update_samples = update->Posterior_Update_Samples();
         output_writer->Write_Optimal_Solution_Update(posterior_update_samples);
 
         if (hdsa_verbosity > 0)
@@ -695,21 +683,7 @@ public:
       }
       else
       {
-        HDSA::Ptr<HDSA::Vector<ScalarT>> z_update_mean;
-        if (use_continuation)
-        {
-          *outStream << "Performing continuation optimal solution update is now yet supported in the MrHyDE interface..." << std::endl;
-          //*outStream << "Performing continuation optimal solution update..." << std::endl;
-          HDSA::Ptr<HDSA::MD_Continuation_Update<ScalarT>> update = HDSA::makePtr<HDSA::MD_Continuation_Update<ScalarT>>(data_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis, 3);
-          //z_update_mean = update->Posterior_Update_Mean();
-        }
-        else
-        {
-          //*outStream << "Performing linearization optimal solution update..." << std::endl;
-          HDSA::Ptr<HDSA::MD_Update<ScalarT>> update = HDSA::makePtr<HDSA::MD_Update<ScalarT>>(data_interface, u_prior_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis);
-          z_update_mean = update->Posterior_Update_Mean();
-        }
-
+        HDSA::Ptr<HDSA::Vector<ScalarT>> z_update_mean = update->Posterior_Update_Mean();
         output_writer->Write_Optimal_Solution_Update(z_update_mean);
 
         if (hdsa_verbosity > 0)

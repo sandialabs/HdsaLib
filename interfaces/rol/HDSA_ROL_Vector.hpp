@@ -1,6 +1,6 @@
 /***********************************************************************
  HdsaLib - A library for Hyper-differential Sensitivity Analysis
- 
+
  Questions? Contact Joseph Hart (joshart@sandia.gov)
 ************************************************************************/
 
@@ -9,6 +9,9 @@
 
 #include "ROL_Vector.hpp"
 #include "ROL_StdVector.hpp"
+#include "HDSA_Ptr.hpp"
+#include "HDSA_Comm.hpp"
+#include "HDSA_Random_Number_Generator.hpp"
 
 namespace HDSA
 {
@@ -20,18 +23,20 @@ namespace HDSA
   public:
     ROL::Ptr<ROL::Vector<RealT>> rol_vec;
     static ROL::Elementwise::NormalRandom<RealT> nr;
+    HDSA::Ptr<HDSA::Random_Number_Generator<RealT>> random_number_generator;
+    HDSA::Ptr<const HDSA::Comm<int>> comm;
 
-    ROL_Vector(ROL::Ptr<ROL::Vector<RealT>> &rol_vec_in) : rol_vec(rol_vec_in)
+    ROL_Vector(ROL::Ptr<ROL::Vector<RealT>> &rol_vec_in, const HDSA::Ptr<HDSA::Random_Number_Generator<RealT>> &random_number_generator_in, const HDSA::Ptr<const HDSA::Comm<int>> &comm_in) : rol_vec(rol_vec_in), random_number_generator(random_number_generator_in), comm(comm_in)
     {
     }
 
-    ROL_Vector(ROL::Vector<RealT> &rol_vec_in)
+    ROL_Vector(ROL::Vector<RealT> &rol_vec_in, const HDSA::Ptr<HDSA::Random_Number_Generator<RealT>> &random_number_generator_in, const HDSA::Ptr<const HDSA::Comm<int>> &comm_in) : random_number_generator(random_number_generator_in), comm(comm_in)
     {
       rol_vec = rol_vec_in.clone();
       rol_vec->set(rol_vec_in);
     }
 
-    ROL_Vector(const ROL::Ptr<ROL::Vector<RealT>> &rol_vec_in) : rol_vec(rol_vec_in) {};
+    ROL_Vector(const ROL::Ptr<ROL::Vector<RealT>> &rol_vec_in, const HDSA::Ptr<HDSA::Random_Number_Generator<RealT>> &random_number_generator_in, const HDSA::Ptr<const HDSA::Comm<int>> &comm_in) : rol_vec(rol_vec_in), random_number_generator(random_number_generator_in), comm(comm_in) {};
 
     virtual ~ROL_Vector()
     {
@@ -42,7 +47,7 @@ namespace HDSA
     {
       ROL::Ptr<ROL::Vector<RealT>> rol_vec_clone = rol_vec->clone();
       rol_vec_clone->zero(); // ROL clone() vector is not initialized
-      return Teuchos::rcp(new HDSA::ROL_Vector<RealT>(rol_vec_clone));
+      return Teuchos::rcp(new HDSA::ROL_Vector<RealT>(rol_vec_clone,random_number_generator,comm));
     }
 
     // compute the Dot product of this and x
@@ -94,6 +99,12 @@ namespace HDSA
       {
         std::cout << "Write_to_File is currently not supported for this vector type" << std::endl;
       }
+    }
+
+    HDSA::Ptr<HDSA::Vector<RealT>> Generate_Std_Vector(int r) const override
+    {
+      HDSA::Ptr<HDSA::Vector<RealT>> vec = HDSA::makePtr<HDSA::Std_Vector<RealT>>(r, random_number_generator, comm);
+      return vec;
     }
   };
 

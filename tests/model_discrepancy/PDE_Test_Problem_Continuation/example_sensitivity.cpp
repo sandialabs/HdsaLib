@@ -141,7 +141,7 @@ int main(int argc, char *argv[])
             << std::setprecision(8) << (posterior_update_samples->mean)->Norm() << std::setprecision(6) << std::endl;
 
   int num_continuation_steps = 3;
-  HDSA::Ptr<HDSA::MD_Continuation_Update<RealT>> cont_update = HDSA::makePtr<HDSA::MD_Continuation_Update<RealT>>(data_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis, num_continuation_steps);
+  HDSA::Ptr<HDSA::MD_Update<RealT>> cont_update = HDSA::makePtr<HDSA::MD_Update<RealT>>(data_interface, u_prior_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis, num_continuation_steps);
   HDSA::Ptr<HDSA::Vector<RealT>> z_k = cont_update->Posterior_Update_Mean();
   name = "posterior_update_mean_continuation.txt";
   z_k->Write_to_File(name);

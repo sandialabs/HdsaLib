@@ -127,7 +127,7 @@ namespace HDSA
       Posterior_Update_Mean(*u_post_vecs->mean, *z_post_vecs->mean, *beta);
 
       HDSA::Ptr<HDSA::MultiVector<RealT>> beta_multi = HDSA::makePtr<HDSA::MultiVector<RealT>>(num_samples, *beta);
-      Posterior_Update_Mean(*u_post_vecs->samples, *z_post_vecs->samples, *beta_multi);
+      Posterior_Update_Samples(*u_post_vecs->samples, *z_post_vecs->samples, *beta_multi);
 
       return z_post_vecs;
     }
@@ -137,9 +137,9 @@ namespace HDSA
       int num_samples = post_sampling_->post_data->num_samples;
       for (int sample_idx = 1; sample_idx <= num_samples; ++sample_idx)
       {
-        HDSA::Ptr<HDSA::Vector<RealT>> u_k = (*u_ks)[sample_idx - 1];
-        HDSA::Ptr<HDSA::Vector<RealT>> z_k = (*z_ks)[sample_idx - 1];
-        HDSA::Ptr<HDSA::Vector<RealT>> beta_k = (*beta_ks)[sample_idx - 1];
+        HDSA::Ptr<HDSA::Vector<RealT>> u_k = u_ks[sample_idx - 1];
+        HDSA::Ptr<HDSA::Vector<RealT>> z_k = z_ks[sample_idx - 1];
+        HDSA::Ptr<HDSA::Vector<RealT>> beta_k = beta_ks[sample_idx - 1];
 
         Posterior_Update_Core(*u_k, *z_k, *beta_k, sample_idx);
       }

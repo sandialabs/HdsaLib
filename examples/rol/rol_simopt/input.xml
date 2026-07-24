@@ -15,7 +15,6 @@
     <Parameter name="Oversampling Factor" type="int"    value="10" />    
   </ParameterList>
   <ParameterList name="MD Continuation Update">
-    <Parameter name="Use Continuation"             type="bool" value="true" />
     <Parameter name="Number of Continuation Steps" type="int"  value="3"     />
   </ParameterList>
   <ParameterList name="General">

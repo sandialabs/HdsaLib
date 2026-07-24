@@ -119,13 +119,9 @@ int main(int argc, char *argv[])
   int oversampling = 10;
   hessian_analysis->Compute_Hessian_GEVP(data_interface->Get_z_opt(), num_evals, oversampling);
 
-  // Standard Update
-  // HDSA::Ptr<HDSA::MD_Update<RealT>> update = HDSA::makePtr<HDSA::MD_Update<RealT>>(data_interface, u_prior_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis);
-  // HDSA::Ptr<HDSA::Vector<RealT>> z_k = update->Posterior_Update_Mean(); 
-
   // Continuation Update
   int num_continuation_steps = 3;
-  HDSA::Ptr<HDSA::MD_Continuation_Update<RealT>> update = HDSA::makePtr<HDSA::MD_Continuation_Update<RealT>>(data_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis, num_continuation_steps);
+  HDSA::Ptr<HDSA::MD_Update<RealT>> update = HDSA::makePtr<HDSA::MD_Update<RealT>>(data_interface, u_prior_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis, num_continuation_steps);
   HDSA::Ptr<HDSA::Vector<RealT>> z_k = update->Posterior_Update_Mean();
   name = "posterior_update_mean.txt";
   z_k->Write_to_File(name);
