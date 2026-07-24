@@ -1,0 +1,26 @@
+# Symbolic links
+optimization/mrhyde
+optimization/dmrhyde
+fwd_hifi_data_generation/mrhyde
+fwd_hifi_data_generation/dmrhyde
+hdsa_exo/mrhyde
+hdsa_exo/dmrhyde
+hdsa_txt/mrhyde
+hdsa_txt/dmrhyde
+
+# Exo files
+optimization/output_lofi_opt.exo*
+fwd_hifi_data_generation/output_lofi_opt.exo*
+fwd_hifi_data_generation/output_hifi_1.exo*
+fwd_hifi_data_generation/output_hifi_2.exo*
+fwd_hifi_data_generation/hifi_z1.exo*
+fwd_hifi_data_generation/hifi_z2.exo*
+fwd_hifi_data_generation/obj_val.txt
+hdsa_exo/output_lofi_opt.exo*
+hdsa_exo/output_hifi_1.exo*
+hdsa_exo/output_hifi_2.exo*
+hdsa_exo/hdsa_output*
+hdsa_txt/hdsa_output*
+
+# Run `git clean -Xdn` in this directory
+# and `git clean -Xdf` to confirm deletion.

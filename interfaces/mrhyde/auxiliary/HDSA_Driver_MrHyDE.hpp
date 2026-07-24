@@ -31,6 +31,7 @@
 #include "HDSA_MD_Posterior_Sampling.hpp"
 #include "HDSA_MD_Hessian_Analysis.hpp"
 #include "HDSA_MD_Update.hpp"
+#include "HDSA_MD_Continuation_Update.hpp"
 #include "HDSA_MD_OUU_Data_Interface_MrHyDE.hpp"
 #include "HDSA_MD_OUU_Opt_Prob_Interface_MrHyDE.hpp"
 #include "HDSA_MD_OUU_Ensemble_Weighting_Matrix.hpp"
@@ -106,7 +107,7 @@ public:
     int num_random_numbers = data_load_list.get<int>("num_random_numbers", 0);
 
     HDSA::Ptr<HDSA::Random_Number_Generator<ScalarT>> random_number_generator;
-    HDSA::Ptr<HDSA::Comm<int>> hdsa_comm = HDSA::makePtr<HDSA::Comm<int>>(comm_);
+    HDSA::Ptr<const HDSA::Comm<int>> hdsa_comm = HDSA::makePtr<HDSA::Comm<int>>(comm_);
     if (random_number_file == "error")
     {
       random_number_generator = HDSA::makePtr<HDSA::Random_Number_Generator<ScalarT>>(hdsa_comm);
@@ -197,6 +198,7 @@ public:
     int num_prior_samples = HDSAsettings.sublist("Configuration").get<int>("num_prior_samples", 0);
     int num_posterior_samples = HDSAsettings.sublist("Configuration").get<int>("num_posterior_samples", 0);
     int prior_num_state_solves = HDSAsettings.sublist("Configuration").get<int>("prior_num_state_solves", 0);
+    int num_continuation_steps = HDSAsettings.sublist("Configuration").get<int>("num_continuation_steps", 0);
     int hdsa_verbosity = HDSAsettings.sublist("Configuration").get<int>("verbosity", 0);
     bool execute_prior_discrepancy_sampling = HDSAsettings.sublist("Configuration").get<bool>("execute_prior_discrepancy_sampling", false);
     bool execute_posterior_discrepancy_sampling = HDSAsettings.sublist("Configuration").get<bool>("execute_posterior_discrepancy_sampling", false);
@@ -249,7 +251,7 @@ public:
     ///////////////////////////////////////////////////////////////////////////////////////////////////
 
     HDSA::Ptr<HDSA::Random_Number_Generator<ScalarT>> random_number_generator;
-    HDSA::Ptr<HDSA::Comm<int>> hdsa_comm = HDSA::makePtr<HDSA::Comm<int>>(comm_);
+    HDSA::Ptr<const HDSA::Comm<int>> hdsa_comm = HDSA::makePtr<HDSA::Comm<int>>(comm_);
     if (random_number_file == "error")
     {
       random_number_generator = HDSA::makePtr<HDSA::Random_Number_Generator<ScalarT>>(hdsa_comm);
@@ -662,7 +664,8 @@ public:
         output_writer->Write_Hessian_Eigenvalues(evals);
       }
 
-      HDSA::Ptr<HDSA::MD_Update<ScalarT>> update = HDSA::makePtr<HDSA::MD_Update<ScalarT>>(data_interface, u_prior_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis);
+      HDSA::Ptr<HDSA::MD_Update<ScalarT>> update = HDSA::makePtr<HDSA::MD_Update<ScalarT>>(data_interface, u_prior_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis, num_continuation_steps);
+
       if (num_posterior_samples > 0)
       {
         if (hdsa_verbosity > 1)

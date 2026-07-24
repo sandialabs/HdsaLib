@@ -1,6 +1,6 @@
 /***********************************************************************
  HdsaLib - A library for Hyper-differential Sensitivity Analysis
- 
+
  Questions? Contact Joseph Hart (joshart@sandia.gov)
 ************************************************************************/
 
@@ -48,7 +48,7 @@ namespace HDSA
     virtual void Randomize_Standard_Normal() = 0;
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Virtual functions available for convienence when useful, these are not called within HdsaLib but rather are for the user to call from main rather than going through casts
+    // Virtual functions that are only required for a subset of analyses
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     virtual void Write_to_File(const std::string &name) const
@@ -69,6 +69,14 @@ namespace HDSA
     {
       HDSA_TEST_FOR_EXCEPTION(true, std::logic_error,
                               "Error in HDSA::Vector: Set_Entry has not been implemented for this vector type" << std::endl);
+    }
+
+    virtual HDSA::Ptr<HDSA::Vector<RealT>> Generate_Std_Vector(int r) const
+    {
+      HDSA_TEST_FOR_EXCEPTION(true, std::logic_error,
+                              "Error in HDSA::Vector: Generate_Std_Vector has not been implemented for this vector type" << std::endl);
+      HDSA::Ptr<HDSA::Vector<RealT>> vec;
+      return vec;
     }
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////

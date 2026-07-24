@@ -39,7 +39,7 @@ namespace HDSA
       distribution_ = std::normal_distribution<RealT>(0.0, 1.0);
     }
 
-    Random_Number_Generator(HDSA::Ptr<HDSA::Comm<int>> &comm, bool seed_on_time = false)
+    Random_Number_Generator(HDSA::Ptr<const HDSA::Comm<int>> &comm, bool seed_on_time = false)
     {
       use_numbers_from_file_ = false;
       if (seed_on_time)

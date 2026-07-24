@@ -1,6 +1,6 @@
 /***********************************************************************
  HdsaLib - A library for Hyper-differential Sensitivity Analysis
- 
+
  Questions? Contact Joseph Hart (joshart@sandia.gov)
 ************************************************************************/
 
@@ -23,6 +23,7 @@
 #include "HDSA_Ptr.hpp"
 #include "HDSA_Random_Number_Generator.hpp"
 #include "HDSA_Vector.hpp"
+#include "HDSA_Std_Vector.hpp"
 #include "HDSA_ROL_Vector.hpp"
 #include "HDSA_MD_ROL_Opt_Prob_Interface.hpp"
 #include "HDSA_MultiVector.hpp"
@@ -32,6 +33,7 @@
 #include "HDSA_MD_Posterior_Vectors.hpp"
 #include "HDSA_MD_Hessian_Analysis.hpp"
 #include "HDSA_MD_Update.hpp"
+#include "HDSA_MD_Continuation_Update.hpp"
 #include "Elliptic_u_Prior_Interface_rol_simopt_test_problem.hpp"
 #include "Elliptic_z_Prior_Interface_rol_simopt_test_problem.hpp"
 #include "Data_Interface_rol_simopt_test_problem.hpp"
@@ -42,6 +44,9 @@ int main(int argc, char *argv[])
 {
 
   Teuchos::GlobalMPISession mpiSession(&argc, &argv);
+
+  HDSA::Ptr<const HDSA::Comm<int>> comm = HDSA::makePtr<HDSA::Comm<int>>();
+  HDSA::Ptr<HDSA::Random_Number_Generator<RealT>> random_number_generator = HDSA::makePtr<HDSA::Random_Number_Generator<RealT>>(comm);
 
   // This little trick lets us print to std::cout only if a (dummy) command-line argument is provided.
   int iprint = argc - 1;
@@ -76,8 +81,7 @@ int main(int argc, char *argv[])
   RealT alpha_z = parlist->sublist("MD Prior").get("alpha_z", 1.0 / std::pow(100.0, 2.0));
   RealT beta_z = parlist->sublist("MD Prior").get("beta_z", 1.e-2);
   RealT alpha_d = parlist->sublist("MD Prior").get("alpha_d", 1.e-3);
-  HDSA::Ptr<HDSA::Random_Number_Generator<RealT>> random_number_generator = HDSA::makePtr<HDSA::Random_Number_Generator<RealT>>();
-  HDSA::Ptr<HDSA::MD_Data_Interface<RealT>> data_interface = HDSA::makePtr<Data_Interface_SimOptTestProb<RealT>>(m);
+  HDSA::Ptr<HDSA::MD_Data_Interface<RealT>> data_interface = HDSA::makePtr<Data_Interface_SimOptTestProb<RealT>>(m, random_number_generator, comm);
   HDSA::Ptr<HDSA::MD_u_Prior_Interface<RealT>> u_prior_interface = HDSA::makePtr<Elliptic_u_Prior_Interface_SimOptTestProb<RealT>>(alpha_u, beta_u, m);
   HDSA::Ptr<HDSA::MD_z_Prior_Interface<RealT>> z_prior_interface = HDSA::makePtr<Elliptic_z_Prior_Interface_SimOptTestProb<RealT>>(alpha_z, beta_z, m, random_number_generator);
 
@@ -165,8 +169,8 @@ int main(int argc, char *argv[])
   oversampling = parlist->sublist("MD Hessian Analysis").get("Oversampling Factor", 10);
   hessian_analysis->Compute_Hessian_GEVP(data_interface->Get_z_opt(), num_evals, oversampling);
 
-  HDSA::Ptr<HDSA::MD_Update<RealT>> update = HDSA::makePtr<HDSA::MD_Update<RealT>>(data_interface, u_prior_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis);
-
+  int num_continuation_steps = parlist->sublist("MD Continuation Update").get("Number of Continuation Steps", 0);
+  HDSA::Ptr<HDSA::MD_Update<RealT>> update = HDSA::makePtr<HDSA::MD_Update<RealT>>(data_interface, u_prior_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis, num_continuation_steps);
   HDSA::Ptr<HDSA::MD_Posterior_Vectors<RealT>> posterior_update_samples = update->Posterior_Update_Samples();
   name = "posterior_update_mean.txt";
   posterior_update_samples->mean->Write_to_File(name);

@@ -135,6 +135,12 @@ namespace HDSA
       (*vec_)[k] = val;
     }
 
+    HDSA::Ptr<HDSA::Vector<RealT>> Generate_Std_Vector(int r) const override
+    {
+      HDSA::Ptr<HDSA::Vector<RealT>> vec = HDSA::makePtr<HDSA::Std_Vector<RealT>>(r, random_number_generator_, comm_);
+      return vec;
+    }
+
     //////////////////////////////////////////////////////////////////////////////////
     // Function specific to this class for convenience
     //////////////////////////////////////////////////////////////////////////////////

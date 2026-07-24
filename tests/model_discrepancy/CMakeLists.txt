@@ -1,8 +1,10 @@
 # Add subdirectories for the tests
 add_subdirectory(PDE_Test_Problem)
+add_subdirectory(PDE_Test_Problem_Continuation)
 add_subdirectory(synthetic_test)
 add_subdirectory(synthetic_test_elliptic_prior)
 add_subdirectory(synthetic_test_hessian_gevp)
+add_subdirectory(synthetic_test_continuation)
 add_subdirectory(synthetic_test_hyperparam_1D)
 add_subdirectory(synthetic_test_transient)
 add_subdirectory(synthetic_test_transient_control)

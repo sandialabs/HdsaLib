@@ -36,6 +36,7 @@ namespace HDSA
 
 			z_out.Zeros();
 			RealT z_in_Norm = z_in.Norm();
+			if (z_in_Norm == 0.0) { return 0; }
 			HDSA::Ptr<HDSA::Vector<RealT>> r = z_in.Clone();
 			r->Set(z_in);
 			r->Scale(1.0 / z_in_Norm);
@@ -85,7 +86,7 @@ namespace HDSA
 
 	public:
 		PC_Pseudo_Time_Continuation(const HDSA::Ptr<HDSA::Vector<RealT>> &z_bar, const HDSA::Ptr<HDSA::PC_Sensitivity_Operator_Interface<RealT>> &sen_op_interface, const HDSA::Ptr<HDSA::PC_Quasi_Newton_Preconditioner<RealT>> &qn_prec,
-									const RealT grad_tol = 1.e-7, const bool use_qn_prec = true, const bool print_cg_output = true, const bool print_cg_iter = false, const RealT cg_tol = 1.e-5, const int max_cg_iter = 100) : z_bar_(z_bar), sen_op_interface_(sen_op_interface), qn_prec_(qn_prec), grad_tol_(grad_tol), use_qn_prec_(use_qn_prec), print_cg_output_(print_cg_output), print_cg_iter_(print_cg_iter), cg_tol_(cg_tol), max_cg_iter_(max_cg_iter)
+									const RealT grad_tol = 1.e-6, const bool use_qn_prec = true, const bool print_cg_output = true, const bool print_cg_iter = false, const RealT cg_tol = 1.e-5, const int max_cg_iter = 100) : z_bar_(z_bar), sen_op_interface_(sen_op_interface), qn_prec_(qn_prec), grad_tol_(grad_tol), use_qn_prec_(use_qn_prec), print_cg_output_(print_cg_output), print_cg_iter_(print_cg_iter), cg_tol_(cg_tol), max_cg_iter_(max_cg_iter)
 		{
 			max_extra_newton_ = 50;
 		}

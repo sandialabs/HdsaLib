@@ -35,6 +35,16 @@ namespace HDSA
     virtual void Misfit_Gradient(HDSA::Vector<RealT> &u_grad, const HDSA::Vector<RealT> &u, const HDSA::Vector<RealT> &z) const = 0;
 
     virtual void Apply_Misfit_Hessian(HDSA::Vector<RealT> &u_out, const HDSA::Vector<RealT> &u_in, const HDSA::Vector<RealT> &u, const HDSA::Vector<RealT> &z) const = 0;
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// The following virtual functions are needed for the continuation algorithm
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    virtual void Apply_Solution_Operator_z_Jacobian(HDSA::Vector<RealT> &u_out, const HDSA::Vector<RealT> &z_in, const HDSA::Vector<RealT> &z) const {};
+    
+    virtual void State_Solve(HDSA::Vector<RealT> &u_out, const HDSA::Vector<RealT> &z) const {};
+    
+    virtual void Regularization_Gradient(HDSA::Vector<RealT> &grad_z, const HDSA::Vector<RealT> &u, const HDSA::Vector<RealT> &z) const {};
   };
 
 }
