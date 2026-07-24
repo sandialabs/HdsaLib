@@ -126,10 +126,7 @@ int main(int argc, char *argv[])
   // Continuation Update
   int num_continuation_steps = 3;
   HDSA::Ptr<HDSA::MD_Continuation_Update<RealT>> update = HDSA::makePtr<HDSA::MD_Continuation_Update<RealT>>(data_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis, num_continuation_steps);
-  HDSA::Ptr<HDSA::Vector<RealT>> u_k = HDSA::makePtr<HDSA::Std_Vector<RealT>>(m, random_number_generator, comm);
-  HDSA::Ptr<HDSA::Vector<RealT>> z_k = HDSA::makePtr<HDSA::Std_Vector<RealT>>(m, random_number_generator, comm);
-  HDSA::Ptr<HDSA::Vector<RealT>> beta_k = HDSA::makePtr<HDSA::Std_Vector<RealT>>(num_evals, random_number_generator, comm);
-  update->Posterior_Update_Mean(*u_k, *z_k, *beta_k);
+  HDSA::Ptr<HDSA::Vector<RealT>> z_k = update->Posterior_Update_Mean();
   name = "posterior_update_mean.txt";
   z_k->Write_to_File(name);
 

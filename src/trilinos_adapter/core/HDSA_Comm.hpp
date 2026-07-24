@@ -1,6 +1,6 @@
 /***********************************************************************
  HdsaLib - A library for Hyper-differential Sensitivity Analysis
- 
+
  Questions? Contact Joseph Hart (joshart@sandia.gov)
 ************************************************************************/
 
@@ -27,7 +27,7 @@ namespace HDSA
       comm_ = Tpetra::getDefaultComm();
     }
 
-    Comm(HDSA::Ptr<Teuchos::Comm<int>> &comm) : comm_(comm)
+    Comm(const HDSA::Ptr<const Teuchos::Comm<int>> &comm) : comm_(comm)
     {
     }
 

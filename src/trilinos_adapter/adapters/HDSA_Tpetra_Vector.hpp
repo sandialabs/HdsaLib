@@ -1,6 +1,6 @@
 /***********************************************************************
  HdsaLib - A library for Hyper-differential Sensitivity Analysis
- 
+
  Questions? Contact Joseph Hart (joshart@sandia.gov)
 ************************************************************************/
 
@@ -8,6 +8,7 @@
 #define HDSA_TPETRA_VECTOR_HPP
 
 #include "HDSA_Vector.hpp"
+#include "HDSA_Std_Vector.hpp"
 #include "HDSA_Random_Number_Generator.hpp"
 #include "Tpetra_MultiVector.hpp"
 #include "Tpetra_Map.hpp"
@@ -124,6 +125,13 @@ namespace HDSA
         tpetra_vec_->replaceGlobalValue(k, 0, val);
       }
       comm_->barrier();
+    }
+
+    HDSA::Ptr<HDSA::Vector<RealT>> Generate_Std_Vector(int r) const override
+    {
+      HDSA::Ptr<const HDSA::Comm<int>> hdsa_comm = HDSA::makePtr<HDSA::Comm<int>>(comm_); 
+      HDSA::Ptr<HDSA::Vector<RealT>> vec = HDSA::makePtr<HDSA::Std_Vector<RealT>>(r, random_number_generator_, hdsa_comm);
+      return vec;
     }
   };
 

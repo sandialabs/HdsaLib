@@ -1,6 +1,6 @@
 /***********************************************************************
  HdsaLib - A library for Hyper-differential Sensitivity Analysis
- 
+
  Questions? Contact Joseph Hart (joshart@sandia.gov)
 ************************************************************************/
 
@@ -116,6 +116,12 @@ namespace HDSA
                 std::string name_k = name_tmp + "_time_" + std::to_string(k + 1) + ".txt";
                 vec_[k]->Write_to_File(name_k);
             }
+        }
+
+        HDSA::Ptr<HDSA::Vector<RealT>> Generate_Std_Vector(int r) const override
+        {
+            HDSA::Ptr<HDSA::Vector<RealT>> vec = vec_[0]->Generate_Std_Vector(r);
+            return vec;
         }
 
         //////////////////////////////////////////////////////////////////////////////////

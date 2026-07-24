@@ -87,9 +87,49 @@ namespace HDSA
     {
     }
 
+    HDSA::Ptr<HDSA::Vector<RealT>> Posterior_Update_Mean(void) const
+    {
+      HDSA::Ptr<HDSA::Vector<RealT>> u = data_interface_->Get_u_opt()->Clone();
+      HDSA::Ptr<HDSA::Vector<RealT>> z = data_interface_->Get_z_opt()->Clone();
+      HDSA::Ptr<HDSA::Vector<RealT>> beta;
+      if (r_ == z->Dimension())
+      {
+        beta = z->Clone();
+      }
+      else
+      {
+        beta = z->Generate_Std_Vector(r_);
+      }
+      Posterior_Update_Mean(*u, *z, *beta);
+      return z;
+    }
+
     void Posterior_Update_Mean(HDSA::Vector<RealT> &u_k, HDSA::Vector<RealT> &z_k, HDSA::Vector<RealT> &beta_k) const
     {
       Posterior_Update_Core(u_k, z_k, beta_k, 0);
+    }
+
+    HDSA::Ptr<HDSA::MD_Posterior_Vectors<RealT>> Posterior_Update_Samples(void) const
+    {
+      int num_samples = post_sampling_->post_data->num_samples;
+      HDSA::Ptr<HDSA::MD_Posterior_Vectors<RealT>> u_post_vecs = HDSA::makePtr<MD_Posterior_Vectors<RealT>>(num_samples, *data_interface_->Get_u_opt());
+      HDSA::Ptr<HDSA::MD_Posterior_Vectors<RealT>> z_post_vecs = HDSA::makePtr<MD_Posterior_Vectors<RealT>>(num_samples, *data_interface_->Get_z_opt());
+      HDSA::Ptr<HDSA::Vector<RealT>> beta;
+      if (r_ == data_interface_->Get_z_opt()->Dimension())
+      {
+        beta = data_interface_->Get_z_opt()->Clone();
+      }
+      else
+      {
+        beta = data_interface_->Get_z_opt()->Generate_Std_Vector(r_);
+      }
+
+      Posterior_Update_Mean(*u_post_vecs->mean, *z_post_vecs->mean, *beta);
+
+      HDSA::Ptr<HDSA::MultiVector<RealT>> beta_multi = HDSA::makePtr<HDSA::MultiVector<RealT>>(num_samples, *beta);
+      Posterior_Update_Mean(*u_post_vecs->samples, *z_post_vecs->samples, *beta_multi);
+
+      return z_post_vecs;
     }
 
     void Posterior_Update_Samples(HDSA::MultiVector<RealT> &u_ks, HDSA::MultiVector<RealT> &z_ks, HDSA::MultiVector<RealT> &beta_ks) const
