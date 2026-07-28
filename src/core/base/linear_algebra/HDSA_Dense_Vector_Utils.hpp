@@ -142,6 +142,28 @@ public:
     }
     return val;
   }
+
+  static void Set_Columns_Column_Major(HDSA::Dense_Matrix<RealT>& A, const int first_col,
+                                       const HDSA::Dense_Matrix<RealT>& x) {
+    const int rows = A.Number_of_Rows();
+    const int len = Length(x);
+    for (int idx = 0; idx < len; ++idx) {
+      A.Set_Entry(idx % rows, first_col + idx / rows, Get_Column_Major(x, idx));
+    }
+  }
+
+  static HDSA::Ptr<HDSA::Dense_Matrix<RealT>> Scale_Columns(const HDSA::Dense_Matrix<RealT>& A,
+                                                            const HDSA::Dense_Matrix<RealT>& scales) {
+    HDSA::Ptr<HDSA::Dense_Matrix<RealT>> C =
+        HDSA::makePtr<HDSA::Dense_Matrix<RealT>>(A.Number_of_Rows(), A.Number_of_Columns());
+    for (int j = 0; j < A.Number_of_Columns(); ++j) {
+      const RealT scale = Get_Column_Major(scales, j);
+      for (int i = 0; i < A.Number_of_Rows(); ++i) {
+        C->Set_Entry(i, j, scale * A(i, j));
+      }
+    }
+    return C;
+  }
 };
 
 } // namespace HDSA
