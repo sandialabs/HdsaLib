@@ -170,23 +170,15 @@ private:
     }
 
     const HDSA::Dense_Matrix<RealT>& A = *offline_data_.Vt_Mz_Wz_inv_Mz_V;
-
-    HDSA::Dense_Matrix<RealT> AM(r, N);
-    AM.Zeros();
-
-    A.Multiply(AM, *data.M);
-
-    HDSA::Dense_Matrix<RealT> MtAM(N, N);
-    MtAM.Zeros();
-
-    data.M->Multiply(MtAM, AM, true, false);
+    HDSA::Ptr<HDSA::Dense_Matrix<RealT>> AM = A.Multiply(*data.M);
+    HDSA::Ptr<HDSA::Dense_Matrix<RealT>> MtAM = data.M->Multiply(*AM, true, false);
 
     data.G = HDSA::makePtr<HDSA::Dense_Matrix<RealT>>(N, N);
     data.G->Zeros();
 
     for (int i = 0; i < N; ++i) {
       for (int j = 0; j < N; ++j) {
-        data.G->Set_Entry(i, j, static_cast<RealT>(1) + MtAM(i, j));
+        data.G->Set_Entry(i, j, static_cast<RealT>(1) + (*MtAM)(i, j));
       }
     }
 
@@ -544,7 +536,7 @@ public:
                                                         const HDSA::Dense_Matrix<RealT>& beta_bar,
                                                         HDSA::Dense_Matrix<RealT>& grad) const {
     HDSA::Ptr<HDSA::Dense_Matrix<RealT>> grad_ptr = Evaluate_Posterior_Cov_Trace_Gradient(beta, alpha_d, beta_bar);
-    DV::Assign(grad, *grad_ptr);
+    grad.Assign(*grad_ptr);
     return Evaluate_Posterior_Cov_Trace(beta, alpha_d, beta_bar);
   }
 
@@ -579,7 +571,7 @@ public:
                                                       const HDSA::Dense_Matrix<RealT>& beta_bar, const int& p,
                                                       HDSA::Dense_Matrix<RealT>& grad) const {
     HDSA::Ptr<HDSA::Dense_Matrix<RealT>> grad_ptr = Evaluate_OED_Objective_Seq_Gradient(beta, alpha_d, beta_bar, p);
-    DV::Assign(grad, *grad_ptr);
+    grad.Assign(*grad_ptr);
     return Evaluate_OED_Objective_Seq(beta, alpha_d, beta_bar, p);
   }
 };

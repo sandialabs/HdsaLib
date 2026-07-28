@@ -83,14 +83,6 @@ public:
     return z;
   }
 
-  static void Assign(HDSA::Dense_Matrix<RealT>& dst, const HDSA::Dense_Matrix<RealT>& src) {
-    Check_Same_Length(dst, src);
-    const int len = Length(src);
-    for (int i = 0; i < len; ++i) {
-      Set_Column_Major(dst, i, Get_Column_Major(src, i));
-    }
-  }
-
   static void Set_Scalar(HDSA::Dense_Matrix<RealT>& x, const RealT val) {
     const int len = Length(x);
     for (int i = 0; i < len; ++i) {

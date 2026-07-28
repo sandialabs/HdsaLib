@@ -463,7 +463,7 @@ public:
 
       x = x_trial;
       f = f_trial;
-      DV::Assign(g, *g_trial);
+      g.Assign(*g_trial);
       info.f_hist.push_back(f);
 
       if (sy > std::numeric_limits<RealT>::epsilon() * s_norm * std::max(static_cast<RealT>(1), y_norm)) {
