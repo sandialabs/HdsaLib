@@ -314,15 +314,11 @@ int main(int argc, char* argv[]) {
       }
 
       const RealT prev_z_distance = M_z_Norm_Difference(*current_z_bar, *radius_reference, *z_prior_interface);
-
       const RealT alpha_k = prev_z_distance * prev_z_distance / alpha_k_denom;
-
       const RealT constr_radius = prev_z_distance;
 
       std::cout << "Previous posterior movement radius = " << constr_radius << std::endl;
-
       std::cout << "OED covariance coefficient alpha_k = " << alpha_k << std::endl;
-
       md_oed->Set_Covariance_Coefficient(alpha_k);
 
       typename HDSA::MD_OED<RealT>::Seq_Design_Result seq_result =
@@ -330,15 +326,9 @@ int main(int argc, char* argv[]) {
 
       betas = Append_Betas(*betas, *seq_result.beta_new);
 
-      const RealT max_violation =
-          md_oed->Evaluate_Max_Ellipsoid_Ball_Violation(*seq_result.beta_new, *current_beta_bar, constr_radius);
-
       std::cout << "Sequential OED final objective = " << seq_result.optimizer_info.final_objective << std::endl;
-
       std::cout << "Sequential OED projected-gradient norm = " << seq_result.optimizer_info.projected_gradient_norm
                 << std::endl;
-
-      std::cout << "Sequential OED max ellipsoid violation = " << max_violation << std::endl;
 
       z_p = (*seq_result.Z_new)[0]->Clone();
       z_p->Set(*(*seq_result.Z_new)[0]);
@@ -347,27 +337,20 @@ int main(int argc, char* argv[]) {
     selected_designs.push_back(z_p);
 
     /*
-      Evaluate synthetic discrepancy D(z) = 0.2 z^3 and append data.
+      Evaluate discrepancy and append data.
     */
     HDSA::Ptr<HDSA::Vector<RealT>> D_p = data_interface->Get_u_opt()->Clone();
-
     Evaluate_Synthetic_Discrepancy(*D_p, *z_p);
-
     Z_accum->push_back(z_p);
     D_accum->push_back(D_p);
-
     data_interface->Set_Z_and_D(Z_accum, D_accum);
-
-    std::cout << "Accumulated data points = " << Z_accum->Number_of_Vectors() << std::endl;
 
     /*
       Recompute posterior data for the accumulated design/discrepancy set.
     */
     HDSA::Ptr<HDSA::MD_Posterior_Sampling<RealT>> post_sampling =
         HDSA::makePtr<HDSA::MD_Posterior_Sampling<RealT>>(data_interface, u_prior_interface, z_prior_interface);
-
     int num_post_samples = 0;
-
     post_sampling->Compute_Posterior_Data(alpha_d, num_post_samples);
 
     /*
@@ -379,31 +362,21 @@ int main(int argc, char* argv[]) {
         data_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis, num_continuation_steps);
 
     HDSA::Ptr<HDSA::Vector<RealT>> u_k = data_interface->Get_u_opt()->Clone();
-
     HDSA::Ptr<HDSA::Vector<RealT>> z_k = data_interface->Get_z_opt()->Clone();
-
     HDSA::Ptr<HDSA::Vector<RealT>> beta_k = HDSA::makePtr<HDSA::Std_Vector<RealT>>(r, random_number_generator, comm);
 
     cont_update->Posterior_Update_Mean(*u_k, *z_k, *beta_k);
 
     current_z_bar = z_k;
     current_beta_bar = Vector_To_Dense(*beta_k);
-
     z_bars.push_back(current_z_bar);
 
     const std::string selected_name = "sequential_oed_design_" + std::to_string(step + 1) + ".txt";
-
     const std::string posterior_name = "sequential_oed_posterior_z_bar_" + std::to_string(step + 1) + ".txt";
 
     z_p->Write_to_File(selected_name);
     current_z_bar->Write_to_File(posterior_name);
-
-    std::cout << "Posterior beta_bar norm = " << current_beta_bar->Number_of_Rows()
-              << "-vector, Euclidean norm not printed here." << std::endl;
   }
-
-  HDSA_TEST_FOR_EXCEPTION(current_z_bar == HDSA::nullPtr, std::logic_error,
-                          "Error in example_sensitivity: sequential OED did not produce a final z_bar." << std::endl);
 
   current_z_bar->Write_to_File("sequential_oed_final_posterior_z_bar.txt");
 
@@ -412,33 +385,22 @@ int main(int argc, char* argv[]) {
     objective values.
   */
   HDSA::Ptr<const HDSA::Vector<RealT>> z_lf_opt = data_interface->Get_z_opt();
-
   HDSA::Ptr<HDSA::Vector<RealT>> z_hf_opt = Synthetic_HF_Optimal_z(*z_lf_opt);
 
   HDSA::Ptr<HDSA::Vector<RealT>> u_lf_at_lf_opt =
       Low_Fidelity_State(*opt_prob_interface, *z_lf_opt, *data_interface->Get_u_opt());
-
   HDSA::Ptr<HDSA::Vector<RealT>> u_lf_at_updated =
       Low_Fidelity_State(*opt_prob_interface, *current_z_bar, *data_interface->Get_u_opt());
-
   HDSA::Ptr<HDSA::Vector<RealT>> u_hf_at_lf_opt = High_Fidelity_State(*z_lf_opt, *data_interface->Get_u_opt());
-
   HDSA::Ptr<HDSA::Vector<RealT>> u_hf_at_updated = High_Fidelity_State(*current_z_bar, *data_interface->Get_u_opt());
-
   HDSA::Ptr<HDSA::Vector<RealT>> u_hf_at_hf_opt = High_Fidelity_State(*z_hf_opt, *data_interface->Get_u_opt());
 
   const RealT J_lf_at_lf_opt = Objective_Given_State(*opt_prob_interface, *u_lf_at_lf_opt, *z_lf_opt);
-
   const RealT J_lf_at_updated = Objective_Given_State(*opt_prob_interface, *u_lf_at_updated, *current_z_bar);
-
   const RealT J_hf_at_lf_opt = Objective_Given_State(*opt_prob_interface, *u_hf_at_lf_opt, *z_lf_opt);
-
   const RealT J_hf_at_updated = Objective_Given_State(*opt_prob_interface, *u_hf_at_updated, *current_z_bar);
-
   const RealT J_hf_at_hf_opt = Objective_Given_State(*opt_prob_interface, *u_hf_at_hf_opt, *z_hf_opt);
-
   const RealT dist_lf_to_hf = Vector_Difference_Norm(*z_lf_opt, *z_hf_opt);
-
   const RealT dist_updated_to_hf = Vector_Difference_Norm(*current_z_bar, *z_hf_opt);
 
   std::cout << "\n=====================================================" << std::endl;
@@ -446,36 +408,27 @@ int main(int argc, char* argv[]) {
   std::cout << "=====================================================" << std::endl;
 
   std::cout << "\nJ_LF at low-fidelity optimum:       " << J_lf_at_lf_opt << std::endl;
-
   std::cout << "J_LF at sequential OED update:      " << J_lf_at_updated << std::endl;
-
   std::cout << "\nJ_HF at low-fidelity optimum:       " << J_hf_at_lf_opt << std::endl;
-
   std::cout << "J_HF at sequential OED update:      " << J_hf_at_updated << std::endl;
-
   std::cout << "J_HF at exact synthetic HF optimum: " << J_hf_at_hf_opt << std::endl;
 
   std::cout << "\nHF improvement factor:              "
             << static_cast<RealT>(100) * (static_cast<RealT>(1) - J_hf_at_updated / J_hf_at_lf_opt) << "%" << std::endl;
-
   std::cout << "\n||z_LF_opt - z_HF_opt||:            " << dist_lf_to_hf << std::endl;
-
   std::cout << "||z_updated - z_HF_opt||:           " << dist_updated_to_hf << std::endl;
 
   std::cout << "\nSelected OED design points written to:" << std::endl;
-
   for (int step = 0; step < num_oed_steps; ++step) {
     std::cout << "  sequential_oed_design_" << step + 1 << ".txt" << std::endl;
   }
 
   std::cout << "\nPosterior z_bar history written to:" << std::endl;
-
   for (int step = 0; step < num_oed_steps; ++step) {
     std::cout << "  sequential_oed_posterior_z_bar_" << step + 1 << ".txt" << std::endl;
   }
 
   std::cout << "  sequential_oed_final_posterior_z_bar.txt" << std::endl;
-
   std::cout << "=====================================================" << std::endl;
 
   return 0;

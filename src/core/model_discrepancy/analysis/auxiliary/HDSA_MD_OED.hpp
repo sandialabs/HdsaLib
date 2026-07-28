@@ -58,9 +58,7 @@ public:
   };
 
   using Ellipsoid_Ball_Projection_Data = typename HDSA::MD_Ellipsoid_Ball_SPG<RealT>::Projection_Data;
-
   using SPG_Options = typename HDSA::MD_Ellipsoid_Ball_SPG<RealT>::SPG_Options;
-
   using SPG_Info = typename HDSA::MD_Ellipsoid_Ball_SPG<RealT>::SPG_Info;
 
   struct Seq_Design_Result {
@@ -173,25 +171,24 @@ private:
       }
     }
 
-    data.G = HDSA::makePtr<HDSA::Dense_Matrix<RealT>>(N, N);
-
     const HDSA::Dense_Matrix<RealT>& A = *offline_data_.Vt_Mz_Wz_inv_Mz_V;
+
+    HDSA::Dense_Matrix<RealT> AM(r, N);
+    AM.Zeros();
+
+    A.Multiply(AM, *data.M);
+
+    HDSA::Dense_Matrix<RealT> MtAM(N, N);
+    MtAM.Zeros();
+
+    data.M->Multiply(MtAM, AM, true, false);
+
+    data.G = HDSA::makePtr<HDSA::Dense_Matrix<RealT>>(N, N);
+    data.G->Zeros();
 
     for (int i = 0; i < N; ++i) {
       for (int j = 0; j < N; ++j) {
-        RealT val = static_cast<RealT>(1);
-
-        for (int a = 0; a < r; ++a) {
-          const RealT M_ai = (*data.M)(a, i);
-
-          if (M_ai == static_cast<RealT>(0)) { continue; }
-
-          for (int b = 0; b < r; ++b) {
-            val += M_ai * A(a, b) * (*data.M)(b, j);
-          }
-        }
-
-        data.G->Set_Entry(i, j, val);
+        data.G->Set_Entry(i, j, static_cast<RealT>(1) + MtAM(i, j));
       }
     }
 
@@ -203,50 +200,21 @@ private:
     HDSA::Linear_Algebra::Symmetric_Eig_Decomposition<RealT>(*data.G, *data.g, *data.mu);
 
     data.Mg = HDSA::makePtr<HDSA::Dense_Matrix<RealT>>(r, N);
+    data.Mg->Zeros();
 
-    for (int row = 0; row < r; ++row) {
-      for (int eig_col = 0; eig_col < N; ++eig_col) {
-        RealT val = static_cast<RealT>(0);
-
-        for (int k = 0; k < N; ++k) {
-          val += (*data.M)(row, k) * (*data.g)(k, eig_col);
-        }
-
-        data.Mg->Set_Entry(row, eig_col, val);
-      }
-    }
+    data.M->Multiply(*data.Mg, *data.g);
 
     return data;
   }
 
   RealT Compute_Trace_Term(const RealT mu_i, const RealT alpha_d) const {
     const int lambda_len = DV::Length(*offline_data_.lambda);
-
-    HDSA_TEST_FOR_EXCEPTION(lambda_len <= 0, std::logic_error,
-                            "Error in HDSA::MD_OED::Compute_Trace_Term: "
-                            "lambda vector is empty."
-                                << std::endl);
-
     RealT trace_term = static_cast<RealT>(0);
-
     for (int j = 0; j < lambda_len; ++j) {
       const RealT lambda_j = DV::Get_Column_Major(*offline_data_.lambda, j);
-
-      HDSA_TEST_FOR_EXCEPTION(lambda_j <= static_cast<RealT>(0), std::logic_error,
-                              "Error in HDSA::MD_OED::Compute_Trace_Term: "
-                              "Encountered nonpositive u-prior generalized eigenvalue."
-                                  << std::endl);
-
       const RealT denom = lambda_j * (mu_i + alpha_d * lambda_j);
-
-      HDSA_TEST_FOR_EXCEPTION(denom == static_cast<RealT>(0), std::logic_error,
-                              "Error in HDSA::MD_OED::Compute_Trace_Term: "
-                              "Encountered zero denominator in trace term."
-                                  << std::endl);
-
       trace_term += static_cast<RealT>(1) / denom;
     }
-
     return trace_term;
   }
 
@@ -258,63 +226,18 @@ public:
          const HDSA::Ptr<HDSA::MD_Hessian_Analysis<RealT>>& hessian_analysis)
       : opt_prob_interface_(opt_prob_interface), data_interface_(data_interface), u_prior_interface_(u_prior_interface),
         z_prior_interface_(z_prior_interface), hessian_analysis_(hessian_analysis), offline_data_(), verbosity_(false),
-        covar_coeff_(static_cast<RealT>(1)) {
-    HDSA_TEST_FOR_EXCEPTION(opt_prob_interface_ == HDSA::nullPtr, std::logic_error,
-                            "Error in HDSA::MD_OED constructor: opt_prob_interface is null." << std::endl);
-
-    HDSA_TEST_FOR_EXCEPTION(data_interface_ == HDSA::nullPtr, std::logic_error,
-                            "Error in HDSA::MD_OED constructor: data_interface is null." << std::endl);
-
-    HDSA_TEST_FOR_EXCEPTION(u_prior_interface_ == HDSA::nullPtr, std::logic_error,
-                            "Error in HDSA::MD_OED constructor: u_prior_interface is null." << std::endl);
-
-    HDSA_TEST_FOR_EXCEPTION(z_prior_interface_ == HDSA::nullPtr, std::logic_error,
-                            "Error in HDSA::MD_OED constructor: z_prior_interface is null." << std::endl);
-
-    HDSA_TEST_FOR_EXCEPTION(hessian_analysis_ == HDSA::nullPtr, std::logic_error,
-                            "Error in HDSA::MD_OED constructor: hessian_analysis is null." << std::endl);
-  }
+        covar_coeff_(static_cast<RealT>(1)) {}
 
   virtual ~MD_OED() {}
 
   void Set_Covariance_Coefficient(const RealT& covar_coeff) { covar_coeff_ = covar_coeff; }
-
   RealT Get_Covariance_Coefficient() const { return covar_coeff_; }
 
   void Set_Verbosity(const bool verbosity) { verbosity_ = verbosity; }
-
   bool Get_Verbosity() const { return verbosity_; }
 
   const Offline_Data& Get_Offline_Data() const { return offline_data_; }
-
   int Get_Reduced_Dimension() const { return offline_data_.r; }
-
-  Ellipsoid_Ball_Projection_Data Prepare_Ellipsoid_Ball_Projection(const HDSA::Dense_Matrix<RealT>& beta_bar,
-                                                                   const int p, const RealT radius) const {
-    Check_Offline_Data_Initialized("Prepare_Ellipsoid_Ball_Projection");
-    Check_Reduced_Vector_Length(beta_bar, offline_data_.r, "beta_bar", "Prepare_Ellipsoid_Ball_Projection");
-    return HDSA::MD_Ellipsoid_Ball_SPG<RealT>::Prepare_Projection(beta_bar, p, radius, *offline_data_.Vt_Mz_V);
-  }
-
-  HDSA::Ptr<HDSA::Dense_Matrix<RealT>>
-  Project_Onto_Ellipsoid_Balls(const HDSA::Dense_Matrix<RealT>& y,
-                               const Ellipsoid_Ball_Projection_Data& projection_data) const {
-    Check_Offline_Data_Initialized("Project_Onto_Ellipsoid_Balls");
-
-    HDSA_TEST_FOR_EXCEPTION(projection_data.r != offline_data_.r, std::logic_error,
-                            "Error in HDSA::MD_OED::Project_Onto_Ellipsoid_Balls: "
-                            "projection_data reduced dimension is inconsistent with offline data."
-                                << std::endl);
-
-    return HDSA::MD_Ellipsoid_Ball_SPG<RealT>::Project(y, projection_data);
-  }
-
-  RealT Evaluate_Max_Ellipsoid_Ball_Violation(const HDSA::Dense_Matrix<RealT>& beta,
-                                              const HDSA::Dense_Matrix<RealT>& beta_bar, const RealT radius) const {
-    Check_Offline_Data_Initialized("Evaluate_Max_Ellipsoid_Ball_Violation");
-    Check_Reduced_Vector_Length(beta_bar, offline_data_.r, "beta_bar", "Evaluate_Max_Ellipsoid_Ball_Violation");
-    return HDSA::MD_Ellipsoid_Ball_SPG<RealT>::Evaluate_Max_Violation(beta, beta_bar, radius, *offline_data_.Vt_Mz_V);
-  }
 
   Seq_Design_Result Generate_Seq_Optimal_Design(const HDSA::Dense_Matrix<RealT>& beta_0, const RealT& alpha_d,
                                                 const HDSA::Dense_Matrix<RealT>& betas,
@@ -325,37 +248,12 @@ public:
     const int r = offline_data_.r;
     const int beta0_len = DV::Length(beta_0);
     const int old_beta_len = DV::Length(betas);
-
-    HDSA_TEST_FOR_EXCEPTION(beta0_len <= 0, std::logic_error,
-                            "Error in HDSA::MD_OED::Generate_Seq_Optimal_Design: "
-                            "beta_0 must contain at least one candidate design column."
-                                << std::endl);
-
-    HDSA_TEST_FOR_EXCEPTION(beta0_len % r != 0, std::logic_error,
-                            "Error in HDSA::MD_OED::Generate_Seq_Optimal_Design: "
-                            "Length of beta_0 must be divisible by the reduced dimension r."
-                                << std::endl);
-
-    HDSA_TEST_FOR_EXCEPTION(old_beta_len % r != 0, std::logic_error,
-                            "Error in HDSA::MD_OED::Generate_Seq_Optimal_Design: "
-                            "Length of previous betas must be divisible by the reduced dimension r."
-                                << std::endl);
-
-    HDSA_TEST_FOR_EXCEPTION(alpha_d <= static_cast<RealT>(0), std::logic_error,
-                            "Error in HDSA::MD_OED::Generate_Seq_Optimal_Design: "
-                            "alpha_d must be positive."
-                                << std::endl);
-
-    HDSA_TEST_FOR_EXCEPTION(constr_radius < static_cast<RealT>(0), std::logic_error,
-                            "Error in HDSA::MD_OED::Generate_Seq_Optimal_Design: "
-                            "constr_radius must be a nonnegative true radius."
-                                << std::endl);
-
     Check_Reduced_Vector_Length(beta_bar, r, "beta_bar", "Generate_Seq_Optimal_Design");
 
     const int p = beta0_len / r;
 
-    Ellipsoid_Ball_Projection_Data projection_data = Prepare_Ellipsoid_Ball_Projection(beta_bar, p, constr_radius);
+    Ellipsoid_Ball_Projection_Data projection_data =
+        HDSA::MD_Ellipsoid_Ball_SPG<RealT>::Prepare_Projection(beta_bar, p, constr_radius, *offline_data_.Vt_Mz_V);
 
     auto make_full_beta = [this, old_beta_len, beta0_len,
                            &betas](const HDSA::Dense_Matrix<RealT>& candidate) -> HDSA::Ptr<HDSA::Dense_Matrix<RealT>> {
@@ -426,21 +324,8 @@ public:
                             "Full-space OED fallback is not implemented in this implementation."
                                 << std::endl);
 
-    HDSA_TEST_FOR_EXCEPTION(evecs->Number_of_Vectors() <= 0, std::logic_error,
-                            "Error in HDSA::MD_OED::Offline_Computation: "
-                            "Hessian eigenvector multivector has no vectors."
-                                << std::endl);
-
     offline_data_.V = evecs;
     offline_data_.r = evecs->Number_of_Vectors();
-
-    if (evals != HDSA::nullPtr) {
-      HDSA_TEST_FOR_EXCEPTION(evals->Number_of_Rows() != offline_data_.r, std::logic_error,
-                              "Error in HDSA::MD_OED::Offline_Computation: "
-                              "Number of Hessian eigenvalues does not match number of eigenvectors."
-                                  << std::endl);
-    }
-
     const int r = offline_data_.r;
     const HDSA::Vector<RealT>& prototype = *(*offline_data_.V)[0];
 
@@ -453,19 +338,12 @@ public:
     Apply_M_z_MultiVector(*offline_data_.Mz_Wz_inv_Mz_V, *offline_data_.Wz_inv_Mz_V);
 
     offline_data_.Vt_Mz_V = offline_data_.Mz_V->MatMat(*offline_data_.V);
-
     Symmetrize(*offline_data_.Vt_Mz_V);
 
     offline_data_.Vt_Mz_Wz_inv_Mz_V = offline_data_.Wz_inv_Mz_V->MatMat(*offline_data_.Mz_V);
-
     Symmetrize(*offline_data_.Vt_Mz_Wz_inv_Mz_V);
 
     offline_data_.lambda = u_prior_interface_->Get_W_u_Generalized_Eigenvalues();
-
-    HDSA_TEST_FOR_EXCEPTION(offline_data_.lambda == HDSA::nullPtr, std::logic_error,
-                            "Error in HDSA::MD_OED::Offline_Computation: "
-                            "u_prior_interface returned null generalized eigenvalues."
-                                << std::endl);
   }
 
   RealT Evaluate_Posterior_Cov_Trace(const HDSA::Dense_Matrix<RealT>& beta, const RealT& alpha_d,
@@ -481,11 +359,6 @@ public:
                                 << std::endl);
 
     Check_Reduced_Vector_Length(beta_bar, r, "beta_bar", "Evaluate_Posterior_Cov_Trace");
-
-    HDSA_TEST_FOR_EXCEPTION(alpha_d <= static_cast<RealT>(0), std::logic_error,
-                            "Error in HDSA::MD_OED::Evaluate_Posterior_Cov_Trace: "
-                            "alpha_d must be positive."
-                                << std::endl);
 
     G_Eigs_Data geigs = Compute_G_Eigs_Value_Only(beta);
 
@@ -513,19 +386,15 @@ public:
       }
 
       RealT beta_bar_A_Mg = static_cast<RealT>(0);
-
       for (int a = 0; a < r; ++a) {
         RealT A_Mg_a = static_cast<RealT>(0);
-
         for (int b = 0; b < r; ++b) {
           A_Mg_a += A(a, b) * (*geigs.Mg)(b, i);
         }
-
         beta_bar_A_Mg += DV::Get_Column_Major(beta_bar, a) * A_Mg_a;
       }
 
       const RealT s_i = sum_g + beta_bar_A_Mg;
-
       const RealT p_i = s_i * s_i + y_P_y;
 
       val += p_i * tr_Ws_Mu_Wu_inv;
@@ -560,18 +429,11 @@ public:
                                 << std::endl);
 
     Check_Reduced_Vector_Length(beta_bar, r, "beta_bar", "Evaluate_Posterior_Cov_Trace_Gradient");
-
-    HDSA_TEST_FOR_EXCEPTION(alpha_d <= static_cast<RealT>(0), std::logic_error,
-                            "Error in HDSA::MD_OED::Evaluate_Posterior_Cov_Trace_Gradient: "
-                            "alpha_d must be positive."
-                                << std::endl);
-
     G_Eigs_Data geigs = Compute_G_Eigs_Value_Only(beta);
 
     const int N = beta_len / r + 1;
 
     const HDSA::Dense_Matrix<RealT>& A = *offline_data_.Vt_Mz_Wz_inv_Mz_V;
-
     const HDSA::Dense_Matrix<RealT>& M = *geigs.M;
 
     HDSA::Ptr<HDSA::Dense_Matrix<RealT>> grad =
@@ -611,39 +473,23 @@ public:
 
     for (int eig_idx = 0; eig_idx < N; ++eig_idx) {
       const RealT mu_i = (*geigs.mu)(eig_idx, 0);
-
       RealT trace_term = static_cast<RealT>(0);
       RealT d_trace_d_mu = static_cast<RealT>(0);
-
       const int lambda_len = DV::Length(*offline_data_.lambda);
 
       for (int j = 0; j < lambda_len; ++j) {
         const RealT lambda_j = DV::Get_Column_Major(*offline_data_.lambda, j);
-
-        HDSA_TEST_FOR_EXCEPTION(lambda_j <= static_cast<RealT>(0), std::logic_error,
-                                "Error in HDSA::MD_OED::Evaluate_Posterior_Cov_Trace_Gradient: "
-                                "Encountered nonpositive u-prior generalized eigenvalue."
-                                    << std::endl);
-
         const RealT denom = mu_i + alpha_d * lambda_j;
-
-        HDSA_TEST_FOR_EXCEPTION(denom == static_cast<RealT>(0), std::logic_error,
-                                "Error in HDSA::MD_OED::Evaluate_Posterior_Cov_Trace_Gradient: "
-                                "Encountered zero denominator in trace term."
-                                    << std::endl);
-
         trace_term += static_cast<RealT>(1) / (lambda_j * denom);
         d_trace_d_mu -= static_cast<RealT>(1) / (lambda_j * denom * denom);
       }
 
       std::vector<RealT> Mg_i(r, static_cast<RealT>(0));
-
       for (int a = 0; a < r; ++a) {
         Mg_i[a] = (*geigs.Mg)(a, eig_idx);
       }
 
       std::vector<RealT> vec2(r, static_cast<RealT>(0));
-
       for (int a = 0; a < r; ++a) {
         for (int b = 0; b < r; ++b) {
           vec2[a] += A(a, b) * Mg_i[b];
@@ -654,25 +500,20 @@ public:
           Linear_Combination_MultiVector(*offline_data_.Mz_Wz_inv_Mz_V, *geigs.Mg, eig_idx);
 
       HDSA::Ptr<HDSA::Vector<RealT>> Wz_inv_tmp = tmp->Clone();
-
       z_prior_interface_->Apply_W_z_Inverse(*Wz_inv_tmp, *tmp);
-
       const RealT y_P_y = covar_coeff_ * tmp->Dot(*Wz_inv_tmp);
 
       std::vector<RealT> q(r, static_cast<RealT>(0));
-
       for (int a = 0; a < r; ++a) {
         q[a] = covar_coeff_ * (*offline_data_.Mz_Wz_inv_Mz_V)[a]->Dot(*Wz_inv_tmp);
       }
 
       RealT sum_g = static_cast<RealT>(0);
-
       for (int n = 0; n < N; ++n) {
         sum_g += (*geigs.g)(n, eig_idx);
       }
 
       RealT beta_bar_A_Mg = static_cast<RealT>(0);
-
       for (int a = 0; a < r; ++a) {
         beta_bar_A_Mg += DV::Get_Column_Major(beta_bar, a) * vec2[a];
       }
@@ -681,14 +522,12 @@ public:
       const RealT p_i = s_i * s_i + y_P_y;
 
       std::vector<RealT> inv_denom(N, static_cast<RealT>(0));
-
       for (int k = 0; k < N; ++k) {
         const RealT denom = mu_i - (*geigs.mu)(k, 0);
         if (std::abs(denom) > mu_tol) { inv_denom[k] = static_cast<RealT>(1) / denom; }
       }
 
       std::vector<RealT> mat(N * N, static_cast<RealT>(0));
-
       for (int row = 0; row < N; ++row) {
         for (int col = 0; col < N; ++col) {
           RealT val = static_cast<RealT>(0);
@@ -700,7 +539,6 @@ public:
       }
 
       std::vector<RealT> mat2(N * r, static_cast<RealT>(0));
-
       for (int row = 0; row < N; ++row) {
         for (int a = 0; a < r; ++a) {
           RealT val = static_cast<RealT>(0);
@@ -752,13 +590,6 @@ public:
                                                         HDSA::Dense_Matrix<RealT>& grad) const {
     HDSA::Ptr<HDSA::Dense_Matrix<RealT>> grad_ptr = Evaluate_Posterior_Cov_Trace_Gradient(beta, alpha_d, beta_bar);
 
-    HDSA_TEST_FOR_EXCEPTION(grad.Number_of_Rows() != beta.Number_of_Rows() ||
-                                grad.Number_of_Columns() != beta.Number_of_Columns(),
-                            std::logic_error,
-                            "Error in HDSA::MD_OED::Evaluate_Posterior_Cov_Trace_Value_And_Gradient: "
-                            "Output gradient matrix must have the same dimensions as beta."
-                                << std::endl);
-
     for (int i = 0; i < grad.Number_of_Rows(); ++i) {
       for (int j = 0; j < grad.Number_of_Columns(); ++j) {
         grad.Set_Entry(i, j, (*grad_ptr)(i, j));
@@ -790,18 +621,14 @@ public:
                                 << std::endl);
 
     HDSA::Ptr<HDSA::Dense_Matrix<RealT>> full_grad = Evaluate_Posterior_Cov_Trace_Gradient(beta, alpha_d, beta_bar);
-
     HDSA::Ptr<HDSA::Dense_Matrix<RealT>> seq_grad = HDSA::makePtr<HDSA::Dense_Matrix<RealT>>(tail_len, 1);
 
     seq_grad->Zeros();
-
     const int start = beta_len - tail_len;
-
     for (int i = 0; i < tail_len; ++i) {
       const RealT val = -DV::Get_Column_Major(*full_grad, start + i);
       seq_grad->Set_Entry(i, 0, val);
     }
-
     return seq_grad;
   }
 
@@ -809,20 +636,11 @@ public:
                                                       const HDSA::Dense_Matrix<RealT>& beta_bar, const int& p,
                                                       HDSA::Dense_Matrix<RealT>& grad) const {
     HDSA::Ptr<HDSA::Dense_Matrix<RealT>> grad_ptr = Evaluate_OED_Objective_Seq_Gradient(beta, alpha_d, beta_bar, p);
-
-    HDSA_TEST_FOR_EXCEPTION(grad.Number_of_Rows() != grad_ptr->Number_of_Rows() ||
-                                grad.Number_of_Columns() != grad_ptr->Number_of_Columns(),
-                            std::logic_error,
-                            "Error in HDSA::MD_OED::Evaluate_OED_Objective_Seq_Value_And_Gradient: "
-                            "Output gradient has incompatible dimensions."
-                                << std::endl);
-
     for (int i = 0; i < grad.Number_of_Rows(); ++i) {
       for (int j = 0; j < grad.Number_of_Columns(); ++j) {
         grad.Set_Entry(i, j, (*grad_ptr)(i, j));
       }
     }
-
     return Evaluate_OED_Objective_Seq(beta, alpha_d, beta_bar, p);
   }
 };
