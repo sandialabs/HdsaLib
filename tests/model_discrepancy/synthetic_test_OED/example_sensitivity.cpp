@@ -227,8 +227,8 @@ int main(int argc, char* argv[]) {
   /*
     OED setup and offline reduced matrix construction.
   */
-  HDSA::Ptr<HDSA::MD_OED<RealT>> md_oed = HDSA::makePtr<HDSA::MD_OED<RealT>>(
-      opt_prob_interface, data_interface, u_prior_interface, z_prior_interface, hessian_analysis);
+  HDSA::Ptr<HDSA::MD_OED<RealT>> md_oed =
+      HDSA::makePtr<HDSA::MD_OED<RealT>>(data_interface, u_prior_interface, z_prior_interface, hessian_analysis);
 
   md_oed->Offline_Computation();
 

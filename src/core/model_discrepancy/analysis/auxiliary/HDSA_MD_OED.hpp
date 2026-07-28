@@ -26,7 +26,6 @@
 #include "HDSA_MD_Data_Interface.hpp"
 #include "HDSA_MD_Ellipsoid_Ball_SPG.hpp"
 #include "HDSA_MD_Hessian_Analysis.hpp"
-#include "HDSA_MD_Opt_Prob_Interface.hpp"
 #include "HDSA_MD_u_Prior_Interface.hpp"
 #include "HDSA_MD_z_Prior_Interface.hpp"
 
@@ -71,7 +70,6 @@ public:
 
 private:
   using DV = HDSA::Dense_Vector_Utils<RealT>;
-  HDSA::Ptr<HDSA::MD_Opt_Prob_Interface<RealT>> opt_prob_interface_;
   HDSA::Ptr<HDSA::MD_Data_Interface<RealT>> data_interface_;
   HDSA::Ptr<HDSA::MD_u_Prior_Interface<RealT>> u_prior_interface_;
   HDSA::Ptr<HDSA::MD_z_Prior_Interface<RealT>> z_prior_interface_;
@@ -219,14 +217,12 @@ private:
   }
 
 public:
-  MD_OED(const HDSA::Ptr<HDSA::MD_Opt_Prob_Interface<RealT>>& opt_prob_interface,
-         const HDSA::Ptr<HDSA::MD_Data_Interface<RealT>>& data_interface,
+  MD_OED(const HDSA::Ptr<HDSA::MD_Data_Interface<RealT>>& data_interface,
          const HDSA::Ptr<HDSA::MD_u_Prior_Interface<RealT>>& u_prior_interface,
          const HDSA::Ptr<HDSA::MD_z_Prior_Interface<RealT>>& z_prior_interface,
          const HDSA::Ptr<HDSA::MD_Hessian_Analysis<RealT>>& hessian_analysis)
-      : opt_prob_interface_(opt_prob_interface), data_interface_(data_interface), u_prior_interface_(u_prior_interface),
-        z_prior_interface_(z_prior_interface), hessian_analysis_(hessian_analysis), offline_data_(), verbosity_(false),
-        covar_coeff_(static_cast<RealT>(1)) {}
+      : data_interface_(data_interface), u_prior_interface_(u_prior_interface), z_prior_interface_(z_prior_interface),
+        hessian_analysis_(hessian_analysis), offline_data_(), verbosity_(false), covar_coeff_(static_cast<RealT>(1)) {}
 
   virtual ~MD_OED() {}
 
@@ -247,7 +243,6 @@ public:
 
     const int r = offline_data_.r;
     const int beta0_len = DV::Length(beta_0);
-    const int old_beta_len = DV::Length(betas);
     Check_Reduced_Vector_Length(beta_bar, r, "beta_bar", "Generate_Seq_Optimal_Design");
 
     const int p = beta0_len / r;
@@ -255,27 +250,9 @@ public:
     Ellipsoid_Ball_Projection_Data projection_data =
         HDSA::MD_Ellipsoid_Ball_SPG<RealT>::Prepare_Projection(beta_bar, p, constr_radius, *offline_data_.Vt_Mz_V);
 
-    auto make_full_beta = [this, old_beta_len, beta0_len,
-                           &betas](const HDSA::Dense_Matrix<RealT>& candidate) -> HDSA::Ptr<HDSA::Dense_Matrix<RealT>> {
-      HDSA::Ptr<HDSA::Dense_Matrix<RealT>> full_beta =
-          HDSA::makePtr<HDSA::Dense_Matrix<RealT>>(old_beta_len + beta0_len, 1);
-
-      full_beta->Zeros();
-
-      for (int i = 0; i < old_beta_len; ++i) {
-        full_beta->Set_Entry(i, 0, DV::Get_Column_Major(betas, i));
-      }
-
-      for (int i = 0; i < beta0_len; ++i) {
-        full_beta->Set_Entry(old_beta_len + i, 0, DV::Get_Column_Major(candidate, i));
-      }
-
-      return full_beta;
-    };
-
-    auto objective = [this, alpha_d, p, beta0_len, &beta_bar, &make_full_beta](
-                         const HDSA::Dense_Matrix<RealT>& candidate, HDSA::Dense_Matrix<RealT>& grad) -> RealT {
-      HDSA::Ptr<HDSA::Dense_Matrix<RealT>> full_beta = make_full_beta(candidate);
+    auto objective = [this, alpha_d, p, beta0_len, &betas, &beta_bar](const HDSA::Dense_Matrix<RealT>& candidate,
+                                                                      HDSA::Dense_Matrix<RealT>& grad) -> RealT {
+      HDSA::Ptr<HDSA::Dense_Matrix<RealT>> full_beta = DV::Concatenate(betas, candidate);
 
       HDSA::Dense_Matrix<RealT> tail_grad(beta0_len, 1);
       tail_grad.Zeros();
@@ -366,12 +343,15 @@ public:
 
     const HDSA::Dense_Matrix<RealT>& A = *offline_data_.Vt_Mz_Wz_inv_Mz_V;
 
+    HDSA::Dense_Matrix<RealT> A_Mg(r, N);
+    A_Mg.Zeros();
+    A.Multiply(A_Mg, *geigs.Mg);
+
     RealT val = static_cast<RealT>(0);
 
     for (int i = 0; i < N; ++i) {
       const RealT mu_i = (*geigs.mu)(i, 0);
-
-      const RealT tr_Ws_Mu_Wu_inv = Compute_Trace_Term(mu_i, alpha_d);
+      const RealT trace_term = Compute_Trace_Term(mu_i, alpha_d);
 
       HDSA::Ptr<HDSA::Vector<RealT>> tmp = Linear_Combination_MultiVector(*offline_data_.Mz_Wz_inv_Mz_V, *geigs.Mg, i);
 
@@ -380,24 +360,13 @@ public:
 
       const RealT y_P_y = covar_coeff_ * tmp->Dot(*Wz_inv_tmp);
 
-      RealT sum_g = static_cast<RealT>(0);
-      for (int row = 0; row < N; ++row) {
-        sum_g += (*geigs.g)(row, i);
-      }
-
-      RealT beta_bar_A_Mg = static_cast<RealT>(0);
-      for (int a = 0; a < r; ++a) {
-        RealT A_Mg_a = static_cast<RealT>(0);
-        for (int b = 0; b < r; ++b) {
-          A_Mg_a += A(a, b) * (*geigs.Mg)(b, i);
-        }
-        beta_bar_A_Mg += DV::Get_Column_Major(beta_bar, a) * A_Mg_a;
-      }
+      const RealT sum_g = DV::Column_Sum(*geigs.g, i);
+      const RealT beta_bar_A_Mg = DV::Column_Dot(beta_bar, A_Mg, i);
 
       const RealT s_i = sum_g + beta_bar_A_Mg;
       const RealT p_i = s_i * s_i + y_P_y;
 
-      val += p_i * tr_Ws_Mu_Wu_inv;
+      val += p_i * trace_term;
     }
 
     HDSA_TEST_FOR_EXCEPTION(!std::isfinite(val), std::logic_error,
@@ -441,27 +410,13 @@ public:
 
     grad->Zeros();
 
-    std::vector<RealT> A_beta_bar(r, static_cast<RealT>(0));
+    HDSA::Dense_Matrix<RealT> A_beta_bar(r, 1);
+    A_beta_bar.Zeros();
+    A.Multiply(A_beta_bar, beta_bar);
 
-    for (int a = 0; a < r; ++a) {
-      for (int b = 0; b < r; ++b) {
-        A_beta_bar[a] += A(a, b) * DV::Get_Column_Major(beta_bar, b);
-      }
-    }
-
-    std::vector<RealT> MtA(N * r, static_cast<RealT>(0));
-
-    for (int n = 0; n < N; ++n) {
-      for (int a = 0; a < r; ++a) {
-        RealT val = static_cast<RealT>(0);
-
-        for (int b = 0; b < r; ++b) {
-          val += M(b, n) * A(b, a);
-        }
-
-        MtA[n * r + a] = val;
-      }
-    }
+    HDSA::Dense_Matrix<RealT> MtA(N, r);
+    MtA.Zeros();
+    M.Multiply(MtA, A, true, false);
 
     RealT max_abs_mu = static_cast<RealT>(0);
 
@@ -543,7 +498,7 @@ public:
         for (int a = 0; a < r; ++a) {
           RealT val = static_cast<RealT>(0);
           for (int k = 0; k < N; ++k) {
-            val += mat[row * N + k] * MtA[k * r + a];
+            val += mat[row * N + k] * MtA(k, a);
           }
           mat2[row * r + a] = val;
         }
@@ -570,7 +525,7 @@ public:
             for (int n = 0; n < N; ++n) {
               Mg_jac_a += M(a, n) * g_jac_col[n];
             }
-            grad_s_i += Mg_jac_a * A_beta_bar[a];
+            grad_s_i += Mg_jac_a * A_beta_bar(a, 0);
             grad_y_P_y_i += Mg_jac_a * static_cast<RealT>(2) * q[a];
           }
 
@@ -589,13 +544,7 @@ public:
                                                         const HDSA::Dense_Matrix<RealT>& beta_bar,
                                                         HDSA::Dense_Matrix<RealT>& grad) const {
     HDSA::Ptr<HDSA::Dense_Matrix<RealT>> grad_ptr = Evaluate_Posterior_Cov_Trace_Gradient(beta, alpha_d, beta_bar);
-
-    for (int i = 0; i < grad.Number_of_Rows(); ++i) {
-      for (int j = 0; j < grad.Number_of_Columns(); ++j) {
-        grad.Set_Entry(i, j, (*grad_ptr)(i, j));
-      }
-    }
-
+    DV::Assign(grad, *grad_ptr);
     return Evaluate_Posterior_Cov_Trace(beta, alpha_d, beta_bar);
   }
 
@@ -621,14 +570,8 @@ public:
                                 << std::endl);
 
     HDSA::Ptr<HDSA::Dense_Matrix<RealT>> full_grad = Evaluate_Posterior_Cov_Trace_Gradient(beta, alpha_d, beta_bar);
-    HDSA::Ptr<HDSA::Dense_Matrix<RealT>> seq_grad = HDSA::makePtr<HDSA::Dense_Matrix<RealT>>(tail_len, 1);
-
-    seq_grad->Zeros();
-    const int start = beta_len - tail_len;
-    for (int i = 0; i < tail_len; ++i) {
-      const RealT val = -DV::Get_Column_Major(*full_grad, start + i);
-      seq_grad->Set_Entry(i, 0, val);
-    }
+    HDSA::Ptr<HDSA::Dense_Matrix<RealT>> seq_grad = DV::Scaled_Tail(*full_grad, tail_len, static_cast<RealT>(-1));
+    ;
     return seq_grad;
   }
 
@@ -636,11 +579,7 @@ public:
                                                       const HDSA::Dense_Matrix<RealT>& beta_bar, const int& p,
                                                       HDSA::Dense_Matrix<RealT>& grad) const {
     HDSA::Ptr<HDSA::Dense_Matrix<RealT>> grad_ptr = Evaluate_OED_Objective_Seq_Gradient(beta, alpha_d, beta_bar, p);
-    for (int i = 0; i < grad.Number_of_Rows(); ++i) {
-      for (int j = 0; j < grad.Number_of_Columns(); ++j) {
-        grad.Set_Entry(i, j, (*grad_ptr)(i, j));
-      }
-    }
+    DV::Assign(grad, *grad_ptr);
     return Evaluate_OED_Objective_Seq(beta, alpha_d, beta_bar, p);
   }
 };

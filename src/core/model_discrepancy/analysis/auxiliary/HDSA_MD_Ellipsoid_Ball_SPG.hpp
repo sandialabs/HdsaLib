@@ -463,13 +463,7 @@ public:
 
       x = x_trial;
       f = f_trial;
-
-      for (int i = 0; i < g.Number_of_Rows(); ++i) {
-        for (int j = 0; j < g.Number_of_Columns(); ++j) {
-          g.Set_Entry(i, j, (*g_trial)(i, j));
-        }
-      }
-
+      DV::Assign(g, *g_trial);
       info.f_hist.push_back(f);
 
       if (sy > std::numeric_limits<RealT>::epsilon() * s_norm * std::max(static_cast<RealT>(1), y_norm)) {
