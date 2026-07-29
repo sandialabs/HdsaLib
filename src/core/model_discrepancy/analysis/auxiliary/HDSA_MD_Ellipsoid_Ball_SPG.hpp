@@ -343,12 +343,12 @@ public:
 
     info = SPG_Info();
 
-    HDSA::Ptr<HDSA::Dense_Matrix<RealT>> x = Project(x0, projection_data);
+    HDSA::Dense_Matrix<RealT> x = *(Project(x0, projection_data));
 
-    HDSA::Dense_Matrix<RealT> g(x->Number_of_Rows(), x->Number_of_Columns());
+    HDSA::Dense_Matrix<RealT> g(x.Number_of_Rows(), x.Number_of_Columns());
     g.Zeros();
 
-    RealT f = objective(*x, g);
+    RealT f = objective(x, g);
     info.n_fg_eval = 1;
     info.f_hist.push_back(f);
 
@@ -357,11 +357,11 @@ public:
                             "Objective returned a nonfinite initial value."
                                 << std::endl);
 
-    HDSA_TEST_FOR_EXCEPTION(
-        g.Number_of_Rows() != x->Number_of_Rows() || g.Number_of_Columns() != x->Number_of_Columns(), std::logic_error,
-        "Error in HDSA::MD_Ellipsoid_Ball_SPG::Minimize: "
-        "Objective gradient has incompatible dimensions."
-            << std::endl);
+    HDSA_TEST_FOR_EXCEPTION(g.Number_of_Rows() != x.Number_of_Rows() || g.Number_of_Columns() != x.Number_of_Columns(),
+                            std::logic_error,
+                            "Error in HDSA::MD_Ellipsoid_Ball_SPG::Minimize: "
+                            "Objective gradient has incompatible dimensions."
+                                << std::endl);
 
     RealT alpha = static_cast<RealT>(1);
     RealT pg_norm = std::numeric_limits<RealT>::infinity();
@@ -370,33 +370,24 @@ public:
     bool converged = false;
 
     for (iter = 0; iter < options.max_iter; ++iter) {
-      HDSA::Ptr<HDSA::Dense_Matrix<RealT>> x_minus_g = DV::Axpby(static_cast<RealT>(1), *x, static_cast<RealT>(-1), g);
-
-      HDSA::Ptr<HDSA::Dense_Matrix<RealT>> x_pg = Project(*x_minus_g, projection_data);
-
-      pg_norm = DV::Difference_Norm(*x, *x_pg);
-
-      const RealT x_norm = DV::Norm(*x);
+      HDSA::Ptr<HDSA::Dense_Matrix<RealT>> x_pg = Project(x - g, projection_data);
+      pg_norm = DV::Norm(x - *x_pg);
+      const RealT x_norm = DV::Norm(x);
 
       if (pg_norm <= options.pg_tol * std::max(static_cast<RealT>(1), x_norm)) {
         converged = true;
         break;
       }
 
-      HDSA::Ptr<HDSA::Dense_Matrix<RealT>> x_minus_alpha_g = DV::Axpby(static_cast<RealT>(1), *x, -alpha, g);
-
-      HDSA::Ptr<HDSA::Dense_Matrix<RealT>> x_proj = Project(*x_minus_alpha_g, projection_data);
-
-      HDSA::Ptr<HDSA::Dense_Matrix<RealT>> dir = DV::Axpby(static_cast<RealT>(1), *x_proj, static_cast<RealT>(-1), *x);
-
-      RealT gtd = DV::Dot(g, *dir);
+      HDSA::Ptr<HDSA::Dense_Matrix<RealT>> x_proj = Project(x - alpha * g, projection_data);
+      HDSA::Dense_Matrix<RealT> dir = *x_proj - x;
+      RealT gtd = DV::Dot(g, dir);
 
       if (gtd >= static_cast<RealT>(0)) {
         alpha = static_cast<RealT>(1);
 
-        dir = DV::Axpby(static_cast<RealT>(1), *x_pg, static_cast<RealT>(-1), *x);
-
-        gtd = DV::Dot(g, *dir);
+        dir = *x_pg - x;
+        gtd = DV::Dot(g, dir);
 
         if (gtd >= static_cast<RealT>(0)) { break; }
       }
@@ -413,17 +404,14 @@ public:
       bool accepted = false;
       RealT step = static_cast<RealT>(1);
 
-      HDSA::Ptr<HDSA::Dense_Matrix<RealT>> x_trial;
-      HDSA::Ptr<HDSA::Dense_Matrix<RealT>> g_trial =
-          HDSA::makePtr<HDSA::Dense_Matrix<RealT>>(x->Number_of_Rows(), x->Number_of_Columns());
+      HDSA::Dense_Matrix<RealT> x_trial;
+      HDSA::Dense_Matrix<RealT> g_trial = HDSA::Dense_Matrix<RealT>(x.Number_of_Rows(), x.Number_of_Columns());
 
       RealT f_trial = std::numeric_limits<RealT>::infinity();
 
       for (int bt = 0; bt < options.max_backtracks; ++bt) {
-        x_trial = DV::Axpby(static_cast<RealT>(1), *x, step, *dir);
-
-        g_trial->Zeros();
-        f_trial = objective(*x_trial, *g_trial);
+        x_trial = x + step * dir;
+        f_trial = objective(x_trial, g_trial);
         ++info.n_fg_eval;
 
         HDSA_TEST_FOR_EXCEPTION(!std::isfinite(f_trial), std::logic_error,
@@ -440,10 +428,8 @@ public:
       }
 
       if (!accepted) {
-        x_trial = DV::Axpby(static_cast<RealT>(1), *x, step, *dir);
-
-        g_trial->Zeros();
-        f_trial = objective(*x_trial, *g_trial);
+        x_trial = x + step * dir;
+        f_trial = objective(x_trial, g_trial);
         ++info.n_fg_eval;
 
         HDSA_TEST_FOR_EXCEPTION(!std::isfinite(f_trial), std::logic_error,
@@ -452,18 +438,17 @@ public:
                                     << std::endl);
       }
 
-      HDSA::Ptr<HDSA::Dense_Matrix<RealT>> s = DV::Axpby(static_cast<RealT>(1), *x_trial, static_cast<RealT>(-1), *x);
+      HDSA::Dense_Matrix<RealT> s = x_trial - x;
+      HDSA::Dense_Matrix<RealT> y = g_trial - g;
 
-      HDSA::Ptr<HDSA::Dense_Matrix<RealT>> y = DV::Axpby(static_cast<RealT>(1), *g_trial, static_cast<RealT>(-1), g);
-
-      const RealT sy = DV::Dot(*s, *y);
-      const RealT ss = DV::Dot(*s, *s);
+      const RealT sy = DV::Dot(s, y);
+      const RealT ss = DV::Dot(s, s);
       const RealT s_norm = std::sqrt(std::max(static_cast<RealT>(0), ss));
-      const RealT y_norm = DV::Norm(*y);
+      const RealT y_norm = DV::Norm(y);
 
       x = x_trial;
       f = f_trial;
-      g.Assign(*g_trial);
+      g.Assign(g_trial);
       info.f_hist.push_back(f);
 
       if (sy > std::numeric_limits<RealT>::epsilon() * s_norm * std::max(static_cast<RealT>(1), y_norm)) {
@@ -475,13 +460,9 @@ public:
     }
 
     if (!converged) {
-      HDSA::Ptr<HDSA::Dense_Matrix<RealT>> x_minus_g = DV::Axpby(static_cast<RealT>(1), *x, static_cast<RealT>(-1), g);
-
-      HDSA::Ptr<HDSA::Dense_Matrix<RealT>> x_pg = Project(*x_minus_g, projection_data);
-
-      pg_norm = DV::Difference_Norm(*x, *x_pg);
-
-      if (pg_norm <= options.pg_tol * std::max(static_cast<RealT>(1), DV::Norm(*x))) { converged = true; }
+      HDSA::Ptr<HDSA::Dense_Matrix<RealT>> x_pg = Project(x - g, projection_data);
+      pg_norm = DV::Norm(x - *x_pg);
+      if (pg_norm <= options.pg_tol * std::max(static_cast<RealT>(1), DV::Norm(x))) { converged = true; }
     }
 
     info.iter = iter;
@@ -497,7 +478,10 @@ public:
       std::cout << "Converged: " << (info.converged ? "true" : "false") << std::endl;
     }
 
-    return x;
+    HDSA::Ptr<HDSA::Dense_Matrix<RealT>> x_output =
+        HDSA::makePtr<HDSA::Dense_Matrix<RealT>>(x.Number_of_Rows(), x.Number_of_Columns());
+    x_output->Assign(x);
+    return x_output;
   }
 
   static HDSA::Ptr<HDSA::Dense_Matrix<RealT>>

@@ -231,7 +231,7 @@ public:
       HDSA::Dense_Matrix<RealT> tail_grad(beta0_len, 1);
       tail_grad.Zeros();
 
-      const RealT val = Evaluate_OED_Objective_Seq_Value_And_Gradient(*full_beta, alpha_d, beta_bar, p, tail_grad);
+      const RealT val = Evaluate_OED_Objective_Seq(*full_beta, alpha_d, beta_bar, p, tail_grad);
 
       for (int i = 0; i < beta0_len; ++i) {
         DV::Set_Column_Major(grad, i, DV::Get_Column_Major(tail_grad, i));
@@ -297,20 +297,19 @@ public:
     offline_data_.lambda = u_prior_interface_->Get_W_u_Generalized_Eigenvalues();
   }
 
-  RealT Evaluate_Posterior_Cov_Trace_Value_And_Gradient(const HDSA::Dense_Matrix<RealT>& beta, const RealT& alpha_d,
-                                                        const HDSA::Dense_Matrix<RealT>& beta_bar,
-                                                        HDSA::Dense_Matrix<RealT>& grad) const {
-    Check_Offline_Data_Initialized("Evaluate_Posterior_Cov_Trace_Value_And_Gradient");
+  RealT Evaluate_Posterior_Cov_Trace(const HDSA::Dense_Matrix<RealT>& beta, const RealT& alpha_d,
+                                     const HDSA::Dense_Matrix<RealT>& beta_bar, HDSA::Dense_Matrix<RealT>& grad) const {
+    Check_Offline_Data_Initialized("Evaluate_Posterior_Cov_Trace");
 
     const int r = offline_data_.r;
     const int beta_len = DV::Length(beta);
 
     HDSA_TEST_FOR_EXCEPTION(beta_len % r != 0, std::logic_error,
-                            "Error in HDSA::MD_OED::Evaluate_Posterior_Cov_Trace_Value_And_Gradient: "
+                            "Error in HDSA::MD_OED::Evaluate_Posterior_Cov_Trace: "
                             "beta length must be divisible by the reduced dimension r."
                                 << std::endl);
 
-    Check_Reduced_Vector_Length(beta_bar, r, "beta_bar", "Evaluate_Posterior_Cov_Trace_Value_And_Gradient");
+    Check_Reduced_Vector_Length(beta_bar, r, "beta_bar", "Evaluate_Posterior_Cov_Trace");
 
     G_Eigs_Data geigs = Compute_G_Eigs_Value_Only(beta);
 
@@ -393,32 +392,27 @@ public:
     }
 
     HDSA_TEST_FOR_EXCEPTION(!std::isfinite(val), std::logic_error,
-                            "Error in HDSA::MD_OED::Evaluate_Posterior_Cov_Trace_Value_And_Gradient: "
+                            "Error in HDSA::MD_OED::Evaluate_Posterior_Cov_Trace: "
                             "Computed nonfinite OED objective value."
                                 << std::endl);
 
     grad.Assign(grad_local);
-
     return val;
   }
 
-  RealT Evaluate_OED_Objective_Seq_Value_And_Gradient(const HDSA::Dense_Matrix<RealT>& beta, const RealT& alpha_d,
-                                                      const HDSA::Dense_Matrix<RealT>& beta_bar, const int& p,
-                                                      HDSA::Dense_Matrix<RealT>& grad) const {
-    Check_Offline_Data_Initialized("Evaluate_OED_Objective_Seq_Value_And_Gradient");
+  RealT Evaluate_OED_Objective_Seq(const HDSA::Dense_Matrix<RealT>& beta, const RealT& alpha_d,
+                                   const HDSA::Dense_Matrix<RealT>& beta_bar, const int& p,
+                                   HDSA::Dense_Matrix<RealT>& grad) const {
+    Check_Offline_Data_Initialized("Evaluate_OED_Objective_Seq");
 
     const int r = offline_data_.r;
-    const int beta_len = DV::Length(beta);
-    HDSA_TEST_FOR_EXCEPTION(beta_len % r != 0, std::logic_error,
-                            "Error in HDSA::MD_OED::Evaluate_OED_Objective_Seq_Value_And_Gradient: "
+    HDSA_TEST_FOR_EXCEPTION(DV::Length(beta) % r != 0, std::logic_error,
+                            "Error in HDSA::MD_OED::Evaluate_OED_Objective_Seq: "
                             "beta length must be divisible by reduced dimension r."
                                 << std::endl);
-    const int tail_len = p * r;
     HDSA::Dense_Matrix<RealT> full_grad(beta.Number_of_Rows(), beta.Number_of_Columns());
-    full_grad.Zeros();
-    const RealT val_full = Evaluate_Posterior_Cov_Trace_Value_And_Gradient(beta, alpha_d, beta_bar, full_grad);
-    HDSA::Ptr<HDSA::Dense_Matrix<RealT>> seq_grad = DV::Scaled_Tail(full_grad, tail_len, static_cast<RealT>(-1));
-    grad.Assign(*seq_grad);
+    const RealT val_full = Evaluate_Posterior_Cov_Trace(beta, alpha_d, beta_bar, full_grad);
+    grad.Assign(static_cast<RealT>(-1) * *(DV::Tail(full_grad, p * r)));
     return -val_full;
   }
 };
