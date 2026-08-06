@@ -344,8 +344,7 @@ public:
     info = SPG_Info();
 
     HDSA::Dense_Matrix<RealT> x = *(Project(x0, projection_data));
-
-    HDSA::Dense_Matrix<RealT> g(x.Number_of_Rows(), x.Number_of_Columns());
+    HDSA::Dense_Matrix<RealT> g = x.Clone(false);
     g.Zeros();
 
     RealT f = objective(x, g);
@@ -405,7 +404,7 @@ public:
       RealT step = static_cast<RealT>(1);
 
       HDSA::Dense_Matrix<RealT> x_trial;
-      HDSA::Dense_Matrix<RealT> g_trial = HDSA::Dense_Matrix<RealT>(x.Number_of_Rows(), x.Number_of_Columns());
+      HDSA::Dense_Matrix<RealT> g_trial = x.Clone(false);
 
       RealT f_trial = std::numeric_limits<RealT>::infinity();
 

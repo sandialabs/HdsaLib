@@ -317,7 +317,7 @@ public:
     const HDSA::Dense_Matrix<RealT>& A = *offline_data_.Vt_Mz_Wz_inv_Mz_V;
     const HDSA::Dense_Matrix<RealT>& M = *geigs.M;
 
-    HDSA::Dense_Matrix<RealT> grad_local(beta.Number_of_Rows(), beta.Number_of_Columns());
+    HDSA::Dense_Matrix<RealT> grad_local = beta.Clone(false);
     grad_local.Zeros();
 
     HDSA::Ptr<HDSA::Dense_Matrix<RealT>> A_beta_bar = A.Multiply(beta_bar, true, false);
@@ -410,7 +410,7 @@ public:
                             "Error in HDSA::MD_OED::Evaluate_OED_Objective_Seq: "
                             "beta length must be divisible by reduced dimension r."
                                 << std::endl);
-    HDSA::Dense_Matrix<RealT> full_grad(beta.Number_of_Rows(), beta.Number_of_Columns());
+    HDSA::Dense_Matrix<RealT> full_grad = beta.Clone(false);
     const RealT val_full = Evaluate_Posterior_Cov_Trace(beta, alpha_d, beta_bar, full_grad);
     grad.Assign(static_cast<RealT>(-1) * *(DV::Tail(full_grad, p * r)));
     return -val_full;

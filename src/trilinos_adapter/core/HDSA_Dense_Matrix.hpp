@@ -117,15 +117,14 @@ namespace HDSA
     // Matrix addition: C = this + B
     HDSA::Dense_Matrix<RealT> operator+(const HDSA::Dense_Matrix<RealT>& B) const {
       assert(Number_of_Rows() == B.Number_of_Rows() && Number_of_Columns() == B.Number_of_Columns());
-      HDSA::Dense_Matrix<RealT> C(Number_of_Rows(), Number_of_Columns());
-      C.Get_Teuchos_Matrix()->assign(*A_);
+      HDSA::Dense_Matrix<RealT> C = Clone();
       C.Axpy(static_cast<RealT>(1), B);
       return C;
     }
 
     // Scalar addition
     HDSA::Dense_Matrix<RealT> operator+(RealT alpha) const {
-      HDSA::Dense_Matrix<RealT> C(Number_of_Rows(), Number_of_Columns());
+      HDSA::Dense_Matrix<RealT> C = Clone(false);
       C.Get_Teuchos_Matrix()->putScalar(alpha);
       C.Axpy(static_cast<RealT>(1), *this);
       return C;
@@ -136,9 +135,8 @@ namespace HDSA
 
     // Scalar multiplication
     HDSA::Dense_Matrix<RealT> operator*(RealT alpha) const {
-      HDSA::Dense_Matrix<RealT> C(Number_of_Rows(), Number_of_Columns());
-      C.Get_Teuchos_Matrix()->assign(*A_);
-      C.Get_Teuchos_Matrix()->scale(alpha);
+      HDSA::Dense_Matrix<RealT> C = Clone();
+      C.Scale(alpha);
       return C;
     }
 
@@ -148,15 +146,14 @@ namespace HDSA
     // Matrix subtraction
     HDSA::Dense_Matrix<RealT> operator-(const HDSA::Dense_Matrix<RealT>& B) const {
       assert(Number_of_Rows() == B.Number_of_Rows() && Number_of_Columns() == B.Number_of_Columns());
-      HDSA::Dense_Matrix<RealT> C(Number_of_Rows(), Number_of_Columns());
-      C.Get_Teuchos_Matrix()->assign(*A_);
+      HDSA::Dense_Matrix<RealT> C = Clone();
       C.Axpy(static_cast<RealT>(-1), B);
       return C;
     }
 
     // Scalar subtraction
     HDSA::Dense_Matrix<RealT> operator-(RealT alpha) const {
-      HDSA::Dense_Matrix<RealT> C(Number_of_Rows(), Number_of_Columns());
+      HDSA::Dense_Matrix<RealT> C = Clone(false);
       C.Get_Teuchos_Matrix()->putScalar(-alpha);
       C.Axpy(static_cast<RealT>(1), *this);
       return C;
@@ -167,11 +164,7 @@ namespace HDSA
       assert(j >= 0 && j < Number_of_Columns());
       HDSA::Dense_Matrix<RealT> col(Number_of_Rows(), 1);
       Teuchos::BLAS<int, RealT> blas;
-      const int m = Number_of_Rows();
-      const int lda = A_->stride();
-      const RealT* x = A_->values() + j * lda;
-      RealT* y = col.Get_Teuchos_Matrix()->values();
-      blas.COPY(m, x, 1, y, 1);
+      blas.COPY(Number_of_Rows(), A_->values() + j * A_->stride(), 1, col.Get_Teuchos_Matrix()->values(), 1);
       return col;
     }
 
@@ -183,6 +176,12 @@ namespace HDSA
     void Scale(RealT alpha)
     {
       A_->scale(alpha);
+    }
+
+    HDSA::Dense_Matrix<RealT> Clone(bool clone_values = true) const {
+      HDSA::Dense_Matrix<RealT> C(Number_of_Rows(), Number_of_Columns());
+      if (clone_values) { C.Get_Teuchos_Matrix()->assign(*A_); }
+      return C;
     }
 
     HDSA::Ptr<Teuchos::SerialDenseMatrix<int, RealT>> Get_Teuchos_Matrix(void) const
