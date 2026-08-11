@@ -102,7 +102,7 @@ namespace HDSA
     // Set this=x
     virtual void Set(const HDSA::Vector<RealT> &x)
     {
-      this->Scale(0.0);
+      this->Set_Scalar(0.0);
       this->Scaled_Plus(1.0, x);
     }
 

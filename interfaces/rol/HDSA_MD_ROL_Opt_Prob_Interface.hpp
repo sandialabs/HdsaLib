@@ -148,7 +148,7 @@ namespace HDSA
       con_simopt_->applyAdjointHessian_11( *work_u_rol_vec, *lambda_rol_vec, *du_rol_vec, *u_rol_vec, *z_rol.rol_vec, tol);
       tmp_u_rol_vec->plus(*work_u_rol_vec);
       work_u_rol_vec->zero();
-      con_simopt_->applyAdjointHessian_12( *work_u_rol_vec, *lambda_rol_vec, *z_in_rol.rol_vec, *u_rol_vec, *z_rol.rol_vec, tol);
+      con_simopt_->applyAdjointHessian_21( *work_u_rol_vec, *lambda_rol_vec, *z_in_rol.rol_vec, *u_rol_vec, *z_rol.rol_vec, tol);
       tmp_u_rol_vec->plus(*work_u_rol_vec);
 
       // Push the state-space part through S_z^T
@@ -160,7 +160,7 @@ namespace HDSA
       // Add the direct z-space part
       ROL::Ptr<ROL::Vector<RealT>> work_z_rol_vec = z_in_rol.rol_vec->clone();
       work_z_rol_vec->zero();
-      con_simopt_->applyAdjointHessian_21( *work_z_rol_vec, *lambda_rol_vec, *du_rol_vec, *u_rol_vec, *z_rol.rol_vec, tol);
+      con_simopt_->applyAdjointHessian_12( *work_z_rol_vec, *lambda_rol_vec, *du_rol_vec, *u_rol_vec, *z_rol.rol_vec, tol);
       z_out_rol.rol_vec->plus(*work_z_rol_vec);
       work_z_rol_vec->zero();
       con_simopt_->applyAdjointHessian_22( *work_z_rol_vec, *lambda_rol_vec, *z_in_rol.rol_vec, *u_rol_vec, *z_rol.rol_vec, tol);
