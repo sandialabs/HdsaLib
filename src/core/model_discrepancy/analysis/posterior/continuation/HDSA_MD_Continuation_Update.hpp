@@ -69,7 +69,9 @@ namespace HDSA
                                                                                                                               post_sampling_(post_sampling), hessian_analysis_(hessian_analysis), num_continuation_steps_(num_continuation_steps)
     {
       u_opt_ = data_interface_->Get_u_opt()->Clone();
+      u_opt_->Set(*data_interface_->Get_u_opt());
       z_opt_ = data_interface_->Get_z_opt()->Clone();
+      z_opt_->Set(*data_interface_->Get_z_opt());
 
       HDSA::Ptr<HDSA::Dense_Matrix<RealT>> evals = hessian_analysis_->Get_Evals();
       if (evals == HDSA::nullPtr || evals->Number_of_Rows() == 0)

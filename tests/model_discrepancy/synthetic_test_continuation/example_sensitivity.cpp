@@ -45,10 +45,10 @@ int main(int argc, char *argv[])
 
   HDSA::Ptr<HDSA::MD_Prior_Sampling<RealT>> prior_sampling = HDSA::makePtr<HDSA::MD_Prior_Sampling<RealT>>(data_interface, u_prior_interface, z_prior_interface);
 
-  int num_prior_samples = 100;
-  HDSA::Ptr<HDSA::MultiVector<RealT>> prior_samples_at_z_opt = prior_sampling->Prior_Discrepancy_Samples_at_z_opt(num_prior_samples);
-  std::string name = "prior_discrepancy_evaluated_at_z_opt";
-  prior_samples_at_z_opt->Write_to_File(name);
+  // int num_prior_samples = 100;
+  // HDSA::Ptr<HDSA::MultiVector<RealT>> prior_samples_at_z_opt = prior_sampling->Prior_Discrepancy_Samples_at_z_opt(num_prior_samples);
+  // std::string name = "prior_discrepancy_evaluated_at_z_opt";
+  // prior_samples_at_z_opt->Write_to_File(name);
 
   HDSA::Ptr<HDSA::MultiVector<RealT>> z = HDSA::makePtr<HDSA::MultiVector<RealT>>(3, *data_interface->Get_z_opt());
   HDSA::Ptr<HDSA::Vector<RealT>> z0 = (*z)[0];
@@ -71,12 +71,12 @@ int main(int argc, char *argv[])
     z2_std.Set_Entry(k, std::sin(2 * pi * (*x)(k, 0)));
   }
 
-  std::vector<HDSA::Ptr<HDSA::MultiVector<RealT>>> prior_samples = prior_sampling->Prior_Discrepancy_Samples(*z, num_prior_samples);
-  for (int i = 0; i < num_prior_samples; i++)
-  {
-    std::string name = "prior_discrepancy_sample_" + std::to_string(i + 1);
-    prior_samples[i]->Write_to_File(name);
-  }
+  // std::vector<HDSA::Ptr<HDSA::MultiVector<RealT>>> prior_samples = prior_sampling->Prior_Discrepancy_Samples(*z, num_prior_samples);
+  // for (int i = 0; i < num_prior_samples; i++)
+  // {
+  //   std::string name = "prior_discrepancy_sample_" + std::to_string(i + 1);
+  //   prior_samples[i]->Write_to_File(name);
+  // }
 
   HDSA::Ptr<HDSA::MD_Posterior_Data<RealT>> post_data = HDSA::makePtr<HDSA::MD_Posterior_Data<RealT>>();
 
@@ -100,7 +100,7 @@ int main(int argc, char *argv[])
 
   std::vector<HDSA::Ptr<HDSA::MD_Posterior_Vectors<RealT>>> post_discrepancy_samples = post_sampling->Posterior_Discrepancy_Samples(z_test);
 
-  name = "posterior_discrepancy_mean_1.txt";
+  std::string name = "posterior_discrepancy_mean_1.txt";
   post_discrepancy_samples[0]->mean->Write_to_File(name);
   name = "posterior_discrepancy_mean_2.txt";
   post_discrepancy_samples[1]->mean->Write_to_File(name);
