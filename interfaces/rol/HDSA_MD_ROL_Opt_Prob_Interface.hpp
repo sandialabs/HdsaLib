@@ -116,6 +116,57 @@ namespace HDSA
       obj_simopt_->update(*u_rol.rol_vec, *z_rol.rol_vec, ROL::UpdateType::Temp);
       obj_simopt_->gradient_2(*grad_z_rol.rol_vec, *u_rol.rol_vec, *z_rol.rol_vec, tol);
     }
+
+    void Apply_Solution_Operator_z_Hessian_Adjoint( HDSA::Vector<RealT> &z_out, const HDSA::Vector<RealT> &z_in, const HDSA::Vector<RealT> &u_adj, const HDSA::Vector<RealT> &z) const {
+      HDSA::ROL_Vector<RealT> &z_out_rol = dynamic_cast<HDSA::ROL_Vector<RealT> &>(z_out);
+      const HDSA::ROL_Vector<RealT> &z_in_rol = dynamic_cast<const HDSA::ROL_Vector<RealT> &>(z_in);
+      const HDSA::ROL_Vector<RealT> &u_adj_rol = dynamic_cast<const HDSA::ROL_Vector<RealT> &>(u_adj);
+      const HDSA::ROL_Vector<RealT> &z_rol = dynamic_cast<const HDSA::ROL_Vector<RealT> &>(z);
+      RealT tol = static_cast<RealT>(1.e-8);
+
+      // Solve for the state u = S(z).
+      ROL::Ptr<ROL::Vector<RealT>> u_rol_vec = u_adj_rol.rol_vec->clone();
+      ROL::Ptr<ROL::Vector<RealT>> c_rol_vec = u_adj_rol.rol_vec->clone();
+      con_simopt_->solve(*c_rol_vec, *u_rol_vec, *z_rol.rol_vec, tol);
+
+      // Compute du = S_z(z) z_in = - c_u^{-1} c_z z_in.
+      ROL::Ptr<ROL::Vector<RealT>> du_rol_vec = u_adj_rol.rol_vec->clone();
+      ROL::Ptr<ROL::Vector<RealT>> cz_zin_rol_vec = u_adj_rol.rol_vec->clone();
+      con_simopt_->applyJacobian_2( *cz_zin_rol_vec, *z_in_rol.rol_vec, *u_rol_vec, *z_rol.rol_vec, tol);
+      con_simopt_->applyInverseJacobian_1( *du_rol_vec, *cz_zin_rol_vec, *u_rol_vec, *z_rol.rol_vec, tol);
+      du_rol_vec->scale(static_cast<RealT>(-1));
+
+      // Solve lambda = c_u^{-T} u_adj.
+      ROL::Ptr<ROL::Vector<RealT>> lambda_rol_vec = u_adj_rol.rol_vec->clone();
+      con_simopt_->applyInverseAdjointJacobian_1( *lambda_rol_vec, *u_adj_rol.rol_vec, *u_rol_vec, *z_rol.rol_vec, tol);
+
+      // Build the state-space part
+      ROL::Ptr<ROL::Vector<RealT>> tmp_u_rol_vec = u_adj_rol.rol_vec->clone();
+      ROL::Ptr<ROL::Vector<RealT>> work_u_rol_vec = u_adj_rol.rol_vec->clone();
+      tmp_u_rol_vec->zero();
+      work_u_rol_vec->zero();
+      con_simopt_->applyAdjointHessian_11( *work_u_rol_vec, *lambda_rol_vec, *du_rol_vec, *u_rol_vec, *z_rol.rol_vec, tol);
+      tmp_u_rol_vec->plus(*work_u_rol_vec);
+      work_u_rol_vec->zero();
+      con_simopt_->applyAdjointHessian_12( *work_u_rol_vec, *lambda_rol_vec, *z_in_rol.rol_vec, *u_rol_vec, *z_rol.rol_vec, tol);
+      tmp_u_rol_vec->plus(*work_u_rol_vec);
+
+      // Push the state-space part through S_z^T
+      ROL::Ptr<ROL::Vector<RealT>> lambda_tmp_rol_vec = u_adj_rol.rol_vec->clone();
+      con_simopt_->applyInverseAdjointJacobian_1( *lambda_tmp_rol_vec, *tmp_u_rol_vec, *u_rol_vec, *z_rol.rol_vec, tol);
+      con_simopt_->applyAdjointJacobian_2( *z_out_rol.rol_vec, *lambda_tmp_rol_vec, *u_rol_vec, *z_rol.rol_vec, tol);
+      z_out_rol.rol_vec->scale(static_cast<RealT>(-1));
+
+      // Add the direct z-space part
+      ROL::Ptr<ROL::Vector<RealT>> work_z_rol_vec = z_in_rol.rol_vec->clone();
+      work_z_rol_vec->zero();
+      con_simopt_->applyAdjointHessian_21( *work_z_rol_vec, *lambda_rol_vec, *du_rol_vec, *u_rol_vec, *z_rol.rol_vec, tol);
+      z_out_rol.rol_vec->plus(*work_z_rol_vec);
+      work_z_rol_vec->zero();
+      con_simopt_->applyAdjointHessian_22( *work_z_rol_vec, *lambda_rol_vec, *z_in_rol.rol_vec, *u_rol_vec, *z_rol.rol_vec, tol);
+      z_out_rol.rol_vec->plus(*work_z_rol_vec);
+      z_out_rol.rol_vec->scale(static_cast<RealT>(-1));
+    }
   };
 
 }

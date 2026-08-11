@@ -45,6 +45,8 @@ namespace HDSA
     virtual void State_Solve(HDSA::Vector<RealT> &u_out, const HDSA::Vector<RealT> &z) const {};
     
     virtual void Regularization_Gradient(HDSA::Vector<RealT> &grad_z, const HDSA::Vector<RealT> &u, const HDSA::Vector<RealT> &z) const {};
+  
+    virtual void Apply_Solution_Operator_z_Hessian_Adjoint(HDSA::Vector<RealT> &z_out, const HDSA::Vector<RealT> &z_in, const HDSA::Vector<RealT> &u_adj, const HDSA::Vector<RealT> &z) const { z_out.Zeros(); };
   };
 
 }
