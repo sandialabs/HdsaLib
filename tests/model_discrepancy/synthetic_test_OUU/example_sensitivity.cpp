@@ -8,7 +8,6 @@
 #include <fstream>
 
 #include "HDSA_Stream.hpp"
-#include "HDSA_Comm.hpp"
 #include "HDSA_Ptr.hpp"
 #include "HDSA_Random_Number_Generator.hpp"
 #include "HDSA_Vector.hpp"
@@ -32,7 +31,6 @@ int main(int argc, char *argv[])
 
   HDSA::nullstream bhs;
   Teuchos::GlobalMPISession mpiSession(&argc, &argv, &bhs);
-  HDSA::Ptr<const HDSA::Comm<int>> comm = HDSA::makePtr<HDSA::Comm<int>>();
 
   int num_random_numbers = 3.e6;
   std::string random_number_file = "random_numbers.txt";
@@ -48,7 +46,7 @@ int main(int argc, char *argv[])
     Xi->Set_Entry(2, s, val);
   }
 
-  HDSA::Ptr<HDSA::MD_Data_Interface<RealT>> data_interface = HDSA::makePtr<MD_Data_Interface_synthetic_test_OUU<RealT>>(random_number_generator, comm, ens_size, Xi);
+  HDSA::Ptr<HDSA::MD_Data_Interface<RealT>> data_interface = HDSA::makePtr<MD_Data_Interface_synthetic_test_OUU<RealT>>(random_number_generator, ens_size, Xi);
   HDSA::Ptr<HDSA::MD_Opt_Prob_Interface<RealT>> opt_prob_interface = HDSA::makePtr<MD_Opt_Prob_Interface_synthetic_test_OUU<RealT>>(ens_size, Xi);
   HDSA::Ptr<HDSA::MD_u_Prior_Interface<RealT>> us_prior_interface = HDSA::makePtr<MD_u_Prior_Interface_synthetic_test_OUU<RealT>>(random_number_generator);
   HDSA::Ptr<HDSA::MD_OUU_Ensemble_Weighting_Matrix<RealT>> ensemble_weighting = HDSA::makePtr<HDSA::MD_OUU_Ensemble_Weighting_Matrix<RealT>>(data_interface, us_prior_interface, ens_size);
@@ -132,7 +130,7 @@ int main(int argc, char *argv[])
   int oversampling = 10;
   hessian_analysis->Compute_Hessian_GEVP(data_interface->Get_z_opt(), num_evals, oversampling);
 
-  HDSA::Ptr<HDSA::MD_Update<RealT>> update = HDSA::makePtr<HDSA::MD_Update<RealT>>(data_interface, u_prior_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis);
+  HDSA::Ptr<HDSA::MD_Update<RealT>> update = HDSA::makePtr<HDSA::MD_Update<RealT>>(data_interface, u_prior_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis, random_number_generator);
 
   HDSA::Ptr<HDSA::MD_Posterior_Vectors<RealT>> posterior_update_samples = update->Posterior_Update_Samples();
   name = "posterior_update_mean.txt";

@@ -71,14 +71,6 @@ namespace HDSA
                               "Error in HDSA::Vector: Set_Entry has not been implemented for this vector type" << std::endl);
     }
 
-    virtual HDSA::Ptr<HDSA::Vector<RealT>> Generate_Std_Vector(int r) const
-    {
-      HDSA_TEST_FOR_EXCEPTION(true, std::logic_error,
-                              "Error in HDSA::Vector: Generate_Std_Vector has not been implemented for this vector type" << std::endl);
-      HDSA::Ptr<HDSA::Vector<RealT>> vec;
-      return vec;
-    }
-
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Implementations using the pure virtual functions above, may be overloaded if an efficiency gain is possible
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////

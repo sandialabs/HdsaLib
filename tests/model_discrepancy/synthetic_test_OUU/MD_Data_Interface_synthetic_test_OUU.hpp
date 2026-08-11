@@ -18,11 +18,10 @@ private:
   int m_;                                  // Mesh resolution
   HDSA::Ptr<HDSA::Dense_Matrix<RealT>> x_; // Mesh nodes on [0,1]
   const HDSA::Ptr<HDSA::Random_Number_Generator<RealT>> random_number_generator_;
-  const HDSA::Ptr<const HDSA::Comm<int>> comm_;
   HDSA::Ptr<HDSA::Dense_Matrix<RealT>> Xi_;
 
 public:
-  MD_Data_Interface_synthetic_test_OUU(const HDSA::Ptr<HDSA::Random_Number_Generator<RealT>> &random_number_generator, const HDSA::Ptr<const HDSA::Comm<int>> &comm, int ens_size, HDSA::Ptr<HDSA::Dense_Matrix<RealT>> &Xi) : HDSA::MD_OUU_Data_Interface<RealT>(ens_size), random_number_generator_(random_number_generator), comm_(comm), Xi_(Xi)
+  MD_Data_Interface_synthetic_test_OUU(const HDSA::Ptr<HDSA::Random_Number_Generator<RealT>> &random_number_generator, int ens_size, HDSA::Ptr<HDSA::Dense_Matrix<RealT>> &Xi) : HDSA::MD_OUU_Data_Interface<RealT>(ens_size), random_number_generator_(random_number_generator), Xi_(Xi)
   {
     m_ = 51;
     x_ = HDSA::makePtr<HDSA::Dense_Matrix<RealT>>(m_, 1);
@@ -38,7 +37,7 @@ public:
 
   HDSA::Ptr<HDSA::Vector<RealT>> Load_Optimal_us(int s) const
   {
-    HDSA::Ptr<HDSA::Std_Vector<RealT>> u_opt = HDSA::makePtr<HDSA::Std_Vector<RealT>>(m_, random_number_generator_, comm_);
+    HDSA::Ptr<HDSA::Std_Vector<RealT>> u_opt = HDSA::makePtr<HDSA::Std_Vector<RealT>>(m_, random_number_generator_);
 
     HDSA::Ptr<HDSA::Vector<RealT>> z_opt = Load_Optimal_z();
     HDSA::Std_Vector<RealT> z_opt_std = dynamic_cast<HDSA::Std_Vector<RealT> &>(*z_opt);
@@ -53,7 +52,7 @@ public:
 
   HDSA::Ptr<HDSA::Vector<RealT>> Load_Optimal_z() const
   {
-    HDSA::Ptr<HDSA::Std_Vector<RealT>> z_opt = HDSA::makePtr<HDSA::Std_Vector<RealT>>(m_, random_number_generator_, comm_);
+    HDSA::Ptr<HDSA::Std_Vector<RealT>> z_opt = HDSA::makePtr<HDSA::Std_Vector<RealT>>(m_, random_number_generator_);
 
     RealT val = 0.0;
     // read in data
@@ -77,7 +76,7 @@ public:
 
   HDSA::Ptr<HDSA::MultiVector<RealT>> Load_Z_Data() const
   {
-    HDSA::Ptr<HDSA::Std_Vector<RealT>> z = HDSA::makePtr<HDSA::Std_Vector<RealT>>(m_, random_number_generator_, comm_);
+    HDSA::Ptr<HDSA::Std_Vector<RealT>> z = HDSA::makePtr<HDSA::Std_Vector<RealT>>(m_, random_number_generator_);
     HDSA::Ptr<HDSA::MultiVector<RealT>> Z = HDSA::makePtr<HDSA::MultiVector<RealT>>(2, *z);
 
     HDSA::Ptr<HDSA::Vector<RealT>> z0 = (*Z)[0];
@@ -111,7 +110,7 @@ public:
 
   HDSA::Ptr<HDSA::MultiVector<RealT>> Load_Ds_Data(int s) const
   {
-    HDSA::Ptr<HDSA::Std_Vector<RealT>> d = HDSA::makePtr<HDSA::Std_Vector<RealT>>(m_, random_number_generator_, comm_);
+    HDSA::Ptr<HDSA::Std_Vector<RealT>> d = HDSA::makePtr<HDSA::Std_Vector<RealT>>(m_, random_number_generator_);
     HDSA::Ptr<HDSA::MultiVector<RealT>> D = HDSA::makePtr<HDSA::MultiVector<RealT>>(2, *d);
 
     HDSA::Ptr<HDSA::Vector<RealT>> d0 = (*D)[0];

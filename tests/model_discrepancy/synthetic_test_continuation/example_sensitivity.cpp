@@ -8,7 +8,6 @@
 #include <fstream>
 
 #include "HDSA_Stream.hpp"
-#include "HDSA_Comm.hpp"
 #include "HDSA_Ptr.hpp"
 #include "HDSA_Random_Number_Generator.hpp"
 #include "HDSA_Vector.hpp"
@@ -32,13 +31,12 @@ int main(int argc, char *argv[])
 
   HDSA::nullstream bhs;
   Teuchos::GlobalMPISession mpiSession(&argc, &argv, &bhs);
-  HDSA::Ptr<const HDSA::Comm<int>> comm = HDSA::makePtr<HDSA::Comm<int>>();
 
   int num_random_numbers = 1.e5;
   std::string random_number_file = "random_numbers.txt";
   HDSA::Ptr<HDSA::Random_Number_Generator<RealT>> random_number_generator = HDSA::makePtr<HDSA::Random_Number_Generator<RealT>>(num_random_numbers, random_number_file);
 
-  HDSA::Ptr<HDSA::MD_Data_Interface<RealT>> data_interface = HDSA::makePtr<MD_Data_Interface_synthetic_test_continuation<RealT>>(random_number_generator, comm);
+  HDSA::Ptr<HDSA::MD_Data_Interface<RealT>> data_interface = HDSA::makePtr<MD_Data_Interface_synthetic_test_continuation<RealT>>(random_number_generator);
   HDSA::Ptr<HDSA::MD_Opt_Prob_Interface<RealT>> opt_prob_interface = HDSA::makePtr<MD_Opt_Prob_Interface_synthetic_test_continuation<RealT>>();
   HDSA::Ptr<HDSA::MD_u_Prior_Interface<RealT>> u_prior_interface = HDSA::makePtr<MD_u_Prior_Interface_synthetic_test_continuation<RealT>>(random_number_generator);
   HDSA::Ptr<HDSA::MD_z_Prior_Interface<RealT>> z_prior_interface = HDSA::makePtr<MD_z_Prior_Interface_synthetic_test_continuation<RealT>>(random_number_generator);
@@ -121,7 +119,7 @@ int main(int argc, char *argv[])
 
   // Continuation Update
   int num_continuation_steps = 3;
-  HDSA::Ptr<HDSA::MD_Update<RealT>> update = HDSA::makePtr<HDSA::MD_Update<RealT>>(data_interface, u_prior_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis, num_continuation_steps);
+  HDSA::Ptr<HDSA::MD_Update<RealT>> update = HDSA::makePtr<HDSA::MD_Update<RealT>>(data_interface, u_prior_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis, random_number_generator, num_continuation_steps);
   HDSA::Ptr<HDSA::Vector<RealT>> z_k = update->Posterior_Update_Mean();
   name = "posterior_update_mean.txt";
   z_k->Write_to_File(name);

@@ -32,8 +32,8 @@ int main(int argc, char *argv[])
 
   HDSA::Ptr<HDSA::BF_Update<RealT>> bf_update = HDSA::makePtr<HDSA::BF_Update<RealT>>(sol_op_interface, opt_prob_interface);
 
-  HDSA::Ptr<HDSA::Std_Vector<RealT>> u_lofi = HDSA::makePtr<HDSA::Std_Vector<RealT>>(m, comm);
-  HDSA::Ptr<HDSA::Std_Vector<RealT>> z_lofi = HDSA::makePtr<HDSA::Std_Vector<RealT>>(m, comm);
+  HDSA::Ptr<HDSA::Std_Vector<RealT>> u_lofi = HDSA::makePtr<HDSA::Std_Vector<RealT>>(m);
+  HDSA::Ptr<HDSA::Std_Vector<RealT>> z_lofi = HDSA::makePtr<HDSA::Std_Vector<RealT>>(m);
   for (int k = 0; k < m; k++)
   {
     u_lofi->Set_Entry(k, std::pow(static_cast<RealT>(k) / static_cast<RealT>(m - 1) + 1.0, 3.0));

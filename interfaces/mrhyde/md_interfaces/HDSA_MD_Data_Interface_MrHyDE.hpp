@@ -146,14 +146,14 @@ public:
         trans_vec.resize(num_time_steps);
         for (int i = 0; i < num_time_steps; i++)
         {
-          trans_vec[i] = HDSA::makePtr<HDSA::Std_Vector<RealT>>(z_vec[i], random_number_generator_, hdsa_comm_);
+          trans_vec[i] = HDSA::makePtr<HDSA::Std_Vector<RealT>>(z_vec[i], random_number_generator_);
         }
         z_opt_hdsa = HDSA::makePtr<HDSA::Transient_Vector<RealT>>(trans_vec);
       }
       else
       {
         std::vector<RealT> z_vec = data_loader_->Read_Text_Data_std(opt_solution_txt_file_z_);
-        z_opt_hdsa = HDSA::makePtr<HDSA::Std_Vector<RealT>>(z_vec, random_number_generator_, hdsa_comm_);
+        z_opt_hdsa = HDSA::makePtr<HDSA::Std_Vector<RealT>>(z_vec, random_number_generator_);
       }
     }
     else if (opt_solution_exo_file_ != "error")
@@ -192,14 +192,14 @@ public:
           trans_vec.resize(num_time_steps);
           for (int i = 0; i < num_time_steps; i++)
           {
-            trans_vec[i] = HDSA::makePtr<HDSA::Std_Vector<RealT>>(z_vec[i], random_number_generator_, hdsa_comm_);
+            trans_vec[i] = HDSA::makePtr<HDSA::Std_Vector<RealT>>(z_vec[i], random_number_generator_);
           }
           z_hdsa = HDSA::makePtr<HDSA::Transient_Vector<RealT>>(trans_vec);
         }
         else
         {
           std::vector<RealT> z_vec = data_loader_->Read_Text_Data_std(txt_files_z_[k]);
-          z_hdsa = HDSA::makePtr<HDSA::Std_Vector<RealT>>(z_vec, random_number_generator_, hdsa_comm_);
+          z_hdsa = HDSA::makePtr<HDSA::Std_Vector<RealT>>(z_vec, random_number_generator_);
         }
       }
       else if (hifi_exo_files_[k] != "error")

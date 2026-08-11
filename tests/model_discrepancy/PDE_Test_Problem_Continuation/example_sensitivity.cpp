@@ -8,7 +8,6 @@
 #include <fstream>
 
 #include "HDSA_Stream.hpp"
-#include "HDSA_Comm.hpp"
 #include "HDSA_Ptr.hpp"
 #include "HDSA_Random_Number_Generator.hpp"
 #include "HDSA_Vector.hpp"
@@ -32,13 +31,12 @@ int main(int argc, char *argv[])
 
   HDSA::nullstream bhs;
   Teuchos::GlobalMPISession mpiSession(&argc, &argv, &bhs);
-  HDSA::Ptr<const HDSA::Comm<int>> comm = HDSA::makePtr<HDSA::Comm<int>>();
 
   int num_random_numbers = 4.e5;
   std::string random_number_file = "random_numbers.txt";
   HDSA::Ptr<HDSA::Random_Number_Generator<RealT>> random_number_generator = HDSA::makePtr<HDSA::Random_Number_Generator<RealT>>(num_random_numbers, random_number_file);
 
-  HDSA::Ptr<HDSA::MD_Data_Interface<RealT>> data_interface = HDSA::makePtr<MD_Data_Interface_PDE_Test_Problem<RealT>>(random_number_generator, comm);
+  HDSA::Ptr<HDSA::MD_Data_Interface<RealT>> data_interface = HDSA::makePtr<MD_Data_Interface_PDE_Test_Problem<RealT>>(random_number_generator);
   HDSA::Ptr<HDSA::MD_Opt_Prob_Interface<RealT>> opt_prob_interface = HDSA::makePtr<MD_Opt_Prob_Interface_PDE_Test_Problem<RealT>>();
   RealT alpha_u = 1.0 / std::pow(2.0, 2.0);
   RealT alpha_z = 1.0 / std::pow(3.0, 2.0);
@@ -129,7 +127,7 @@ int main(int argc, char *argv[])
   // int hess_oversampling = 10;
   // hessian_analysis->Compute_Hessian_GEVP(data_interface->Get_z_opt(), num_evals, hess_oversampling);
 
-  HDSA::Ptr<HDSA::MD_Update<RealT>> update = HDSA::makePtr<HDSA::MD_Update<RealT>>(data_interface, u_prior_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis);
+  HDSA::Ptr<HDSA::MD_Update<RealT>> update = HDSA::makePtr<HDSA::MD_Update<RealT>>(data_interface, u_prior_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis, random_number_generator);
 
   HDSA::Ptr<HDSA::MD_Posterior_Vectors<RealT>> posterior_update_samples = update->Posterior_Update_Samples();
   name = "posterior_update_mean.txt";
@@ -141,7 +139,7 @@ int main(int argc, char *argv[])
             << std::setprecision(8) << (posterior_update_samples->mean)->Norm() << std::setprecision(6) << std::endl;
 
   int num_continuation_steps = 3;
-  HDSA::Ptr<HDSA::MD_Update<RealT>> cont_update = HDSA::makePtr<HDSA::MD_Update<RealT>>(data_interface, u_prior_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis, num_continuation_steps);
+  HDSA::Ptr<HDSA::MD_Update<RealT>> cont_update = HDSA::makePtr<HDSA::MD_Update<RealT>>(data_interface, u_prior_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis, random_number_generator, num_continuation_steps);
   HDSA::Ptr<HDSA::Vector<RealT>> z_k = cont_update->Posterior_Update_Mean();
   name = "posterior_update_mean_continuation.txt";
   z_k->Write_to_File(name);

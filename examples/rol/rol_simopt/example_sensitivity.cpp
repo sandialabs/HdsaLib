@@ -81,7 +81,7 @@ int main(int argc, char *argv[])
   RealT alpha_z = parlist->sublist("MD Prior").get("alpha_z", 1.0 / std::pow(100.0, 2.0));
   RealT beta_z = parlist->sublist("MD Prior").get("beta_z", 1.e-2);
   RealT alpha_d = parlist->sublist("MD Prior").get("alpha_d", 1.e-3);
-  HDSA::Ptr<HDSA::MD_Data_Interface<RealT>> data_interface = HDSA::makePtr<Data_Interface_SimOptTestProb<RealT>>(m, random_number_generator, comm);
+  HDSA::Ptr<HDSA::MD_Data_Interface<RealT>> data_interface = HDSA::makePtr<Data_Interface_SimOptTestProb<RealT>>(m, random_number_generator);
   HDSA::Ptr<HDSA::MD_u_Prior_Interface<RealT>> u_prior_interface = HDSA::makePtr<Elliptic_u_Prior_Interface_SimOptTestProb<RealT>>(alpha_u, beta_u, m);
   HDSA::Ptr<HDSA::MD_z_Prior_Interface<RealT>> z_prior_interface = HDSA::makePtr<Elliptic_z_Prior_Interface_SimOptTestProb<RealT>>(alpha_z, beta_z, m, random_number_generator);
 
@@ -170,7 +170,7 @@ int main(int argc, char *argv[])
   hessian_analysis->Compute_Hessian_GEVP(data_interface->Get_z_opt(), num_evals, oversampling);
 
   int num_continuation_steps = parlist->sublist("MD Continuation Update").get("Number of Continuation Steps", 0);
-  HDSA::Ptr<HDSA::MD_Update<RealT>> update = HDSA::makePtr<HDSA::MD_Update<RealT>>(data_interface, u_prior_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis, num_continuation_steps);
+  HDSA::Ptr<HDSA::MD_Update<RealT>> update = HDSA::makePtr<HDSA::MD_Update<RealT>>(data_interface, u_prior_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis, random_number_generator, num_continuation_steps);
   HDSA::Ptr<HDSA::MD_Posterior_Vectors<RealT>> posterior_update_samples = update->Posterior_Update_Samples();
   name = "posterior_update_mean.txt";
   posterior_update_samples->mean->Write_to_File(name);

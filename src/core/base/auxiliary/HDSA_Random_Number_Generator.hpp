@@ -1,6 +1,6 @@
 /***********************************************************************
  HdsaLib - A library for Hyper-differential Sensitivity Analysis
- 
+
  Questions? Contact Joseph Hart (joshart@sandia.gov)
 ************************************************************************/
 
@@ -29,6 +29,7 @@ namespace HDSA
     bool use_numbers_from_file_;
     int file_reading_index_;
     int num_random_numbers_;
+    HDSA::Ptr<const HDSA::Comm<int>> comm_;
 
   public:
     Random_Number_Generator(void)
@@ -39,16 +40,16 @@ namespace HDSA
       distribution_ = std::normal_distribution<RealT>(0.0, 1.0);
     }
 
-    Random_Number_Generator(HDSA::Ptr<const HDSA::Comm<int>> &comm, bool seed_on_time = false)
+    Random_Number_Generator(HDSA::Ptr<const HDSA::Comm<int>> &comm, bool seed_on_time = false) : comm_(comm)
     {
       use_numbers_from_file_ = false;
       if (seed_on_time)
       {
-        seed_ = time(NULL) + comm->getRank();
+        seed_ = time(NULL) + comm_->getRank();
       }
       else
       {
-        seed_ = 123 + comm->getRank();
+        seed_ = 123 + comm_->getRank();
       }
       generator_.seed(seed_);
       distribution_ = std::normal_distribution<RealT>(0.0, 1.0);
@@ -60,6 +61,7 @@ namespace HDSA
       seed_ = seed;
       generator_.seed(seed_);
       distribution_ = std::normal_distribution<RealT>(0.0, 1.0);
+      comm_ = HDSA::nullPtr;
     }
 
     Random_Number_Generator(int num_random_numbers, std::string random_number_file)
@@ -84,9 +86,10 @@ namespace HDSA
       }
       else
       {
-          HDSA_TEST_FOR_EXCEPTION(true, std::logic_error,
-                                  "Error in HDSA::Random_Number_Generator: Cannot open random number file" << std::endl);
+        HDSA_TEST_FOR_EXCEPTION(true, std::logic_error,
+                                "Error in HDSA::Random_Number_Generator: Cannot open random number file" << std::endl);
       }
+      comm_ = HDSA::nullPtr;
     }
 
     virtual ~Random_Number_Generator()
@@ -112,6 +115,25 @@ namespace HDSA
         val = distribution_(generator_);
       }
       return val;
+    }
+
+    void Generate_Standard_Normal_Sample_Std_Vector(std::vector<RealT> & vec)
+    {
+      int dim = vec.size();
+      for (int k = 0; k < dim; k++)
+      {
+        vec[k] = Generate_Standard_Normal_Sample();
+      }
+
+      if (comm_ != HDSA::nullPtr)
+      {
+        if (comm_->getSize() > 1)
+        {
+          comm_->barrier();
+          char *buff = (char *)(&vec[0]);
+          comm_->broadcast(0, 8 * dim, buff);
+        }
+      }
     }
   };
 

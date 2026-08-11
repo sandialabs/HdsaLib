@@ -118,12 +118,6 @@ namespace HDSA
             }
         }
 
-        HDSA::Ptr<HDSA::Vector<RealT>> Generate_Std_Vector(int r) const override
-        {
-            HDSA::Ptr<HDSA::Vector<RealT>> vec = vec_[0]->Generate_Std_Vector(r);
-            return vec;
-        }
-
         //////////////////////////////////////////////////////////////////////////////////
         // Function specific to this class for convenience
         //////////////////////////////////////////////////////////////////////////////////

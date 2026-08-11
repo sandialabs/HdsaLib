@@ -64,7 +64,7 @@ public:
 
   HDSA::Ptr<HDSA::Vector<RealT>> Load_Optimal_z() const
   {
-    HDSA::Ptr<HDSA::Std_Vector<RealT>> tmp = HDSA::makePtr<HDSA::Std_Vector<RealT>>(2, Random_number_generator_, comm_);
+    HDSA::Ptr<HDSA::Std_Vector<RealT>> tmp = HDSA::makePtr<HDSA::Std_Vector<RealT>>(2, Random_number_generator_);
     HDSA::Ptr<HDSA::Vector<RealT>> z_opt = HDSA::makePtr<HDSA::Transient_Vector<RealT>>(n_t_, tmp);
     HDSA::Transient_Vector<RealT> z_opt_trans = dynamic_cast<HDSA::Transient_Vector<RealT> &>(*z_opt);
     for (int j = 0; j < n_t_; j++)

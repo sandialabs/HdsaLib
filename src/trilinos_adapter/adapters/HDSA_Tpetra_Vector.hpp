@@ -127,12 +127,6 @@ namespace HDSA
       comm_->barrier();
     }
 
-    HDSA::Ptr<HDSA::Vector<RealT>> Generate_Std_Vector(int r) const override
-    {
-      HDSA::Ptr<const HDSA::Comm<int>> hdsa_comm = HDSA::makePtr<HDSA::Comm<int>>(comm_); 
-      HDSA::Ptr<HDSA::Vector<RealT>> vec = HDSA::makePtr<HDSA::Std_Vector<RealT>>(r, random_number_generator_, hdsa_comm);
-      return vec;
-    }
   };
 
 }

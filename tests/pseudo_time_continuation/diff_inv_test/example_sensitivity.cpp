@@ -29,9 +29,9 @@ int main(int argc, char *argv[])
   HDSA::Ptr<const HDSA::Comm<int>> comm = HDSA::makePtr<HDSA::Comm<int>>();
 
   int m = 100;
-  HDSA::Ptr<HDSA::Vector<RealT>> u = HDSA::makePtr<HDSA::Std_Vector<RealT>>(m, comm);
-  HDSA::Ptr<HDSA::Vector<RealT>> z_bar = HDSA::makePtr<HDSA::Std_Vector<RealT>>(m, comm);
-  HDSA::Ptr<HDSA::Vector<RealT>> theta_bar = HDSA::makePtr<HDSA::Std_Vector<RealT>>(m, comm);
+  HDSA::Ptr<HDSA::Vector<RealT>> u = HDSA::makePtr<HDSA::Std_Vector<RealT>>(m);
+  HDSA::Ptr<HDSA::Vector<RealT>> z_bar = HDSA::makePtr<HDSA::Std_Vector<RealT>>(m);
+  HDSA::Ptr<HDSA::Vector<RealT>> theta_bar = HDSA::makePtr<HDSA::Std_Vector<RealT>>(m);
 
   HDSA::Std_Vector<RealT> &z_bar_std = dynamic_cast<HDSA::Std_Vector<RealT> &>(*z_bar);
   RealT val = 0.0;

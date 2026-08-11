@@ -55,8 +55,10 @@ public:
 
     Teuchos::RCP<MrHyDE::PhysicsInterface> physics = Teuchos::rcp(new MrHyDE::PhysicsInterface(Settings, comm,
                                                                                                mesh->getBlockNames(),
+                                                                                               mesh->getPhaseBlockNames(),
                                                                                                mesh->getSideNames(),
-                                                                                               mesh->getDimension()));
+                                                                                               mesh->getDimension(),
+                                                                                               mesh->getPhaseDimension()));
 
     mesh->finalize(physics->getVarList(), physics->getVarTypes(), physics->getDerivedList());
 

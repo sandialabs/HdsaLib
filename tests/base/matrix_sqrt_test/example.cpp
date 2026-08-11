@@ -28,11 +28,11 @@ int main(int argc, char *argv[])
 
   int m = 100;
   HDSA::Ptr<HDSA::Matrix_Sqrt<RealT>> mat_sqrt = HDSA::makePtr<Matrix_Sqrt_test<RealT>>(m);
-  HDSA::Ptr<HDSA::Vector<RealT>> vec_in = HDSA::makePtr<HDSA::Std_Vector<RealT>>(m, random_number_generator, comm);
+  HDSA::Ptr<HDSA::Vector<RealT>> vec_in = HDSA::makePtr<HDSA::Std_Vector<RealT>>(m, random_number_generator);
   vec_in->Randomize_Standard_Normal();
-  HDSA::Ptr<HDSA::Vector<RealT>> vec_out_1 = HDSA::makePtr<HDSA::Std_Vector<RealT>>(m, random_number_generator, comm);
-  HDSA::Ptr<HDSA::Vector<RealT>> vec_out_2 = HDSA::makePtr<HDSA::Std_Vector<RealT>>(m, random_number_generator, comm);
-  HDSA::Ptr<HDSA::Vector<RealT>> vec_out_3 = HDSA::makePtr<HDSA::Std_Vector<RealT>>(m, random_number_generator, comm);
+  HDSA::Ptr<HDSA::Vector<RealT>> vec_out_1 = HDSA::makePtr<HDSA::Std_Vector<RealT>>(m, random_number_generator);
+  HDSA::Ptr<HDSA::Vector<RealT>> vec_out_2 = HDSA::makePtr<HDSA::Std_Vector<RealT>>(m, random_number_generator);
+  HDSA::Ptr<HDSA::Vector<RealT>> vec_out_3 = HDSA::makePtr<HDSA::Std_Vector<RealT>>(m, random_number_generator);
 
   mat_sqrt->Matrix_Sqrt_Apply(*vec_out_1, *vec_in);
   mat_sqrt->Matrix_Sqrt_Apply(*vec_out_2, *vec_out_1);

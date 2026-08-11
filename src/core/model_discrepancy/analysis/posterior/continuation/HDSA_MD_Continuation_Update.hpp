@@ -7,6 +7,7 @@
 #ifndef HDSA_MD_CONTINUATION_UPDATE_HPP
 #define HDSA_MD_CONTINUATION_UPDATE_HPP
 
+#include "HDSA_Std_Vector.hpp"
 #include "HDSA_MD_Posterior_Sampling.hpp"
 #include "HDSA_MD_Hessian_Analysis.hpp"
 #include "HDSA_MD_Continuation_Sensitivity_Operators.hpp"
@@ -30,6 +31,7 @@ namespace HDSA
     HDSA::Ptr<HDSA::Vector<RealT>> state_grad_;
     HDSA::Ptr<HDSA::Vector<RealT>> u_opt_;
     HDSA::Ptr<HDSA::Vector<RealT>> z_opt_;
+    HDSA::Ptr<HDSA::Random_Number_Generator<RealT>> random_number_generator_;
     int num_continuation_steps_;
     int r_;
 
@@ -65,8 +67,9 @@ namespace HDSA
   public:
     MD_Continuation_Update(const HDSA::Ptr<HDSA::MD_Data_Interface<RealT>> &data_interface, const HDSA::Ptr<HDSA::MD_z_Prior_Interface<RealT>> &z_prior_interface,
                            const HDSA::Ptr<HDSA::MD_Opt_Prob_Interface<RealT>> &opt_prob_interface, const HDSA::Ptr<HDSA::MD_Posterior_Sampling<RealT>> &post_sampling,
-                           const HDSA::Ptr<HDSA::MD_Hessian_Analysis<RealT>> &hessian_analysis, int num_continuation_steps) : data_interface_(data_interface), z_prior_interface_(z_prior_interface), opt_prob_interface_(opt_prob_interface),
-                                                                                                                              post_sampling_(post_sampling), hessian_analysis_(hessian_analysis), num_continuation_steps_(num_continuation_steps)
+                           const HDSA::Ptr<HDSA::MD_Hessian_Analysis<RealT>> &hessian_analysis, const HDSA::Ptr<HDSA::Random_Number_Generator<RealT>> &random_number_generator,
+                           int num_continuation_steps) : data_interface_(data_interface), z_prior_interface_(z_prior_interface), opt_prob_interface_(opt_prob_interface),
+                                                         post_sampling_(post_sampling), hessian_analysis_(hessian_analysis), random_number_generator_(random_number_generator), num_continuation_steps_(num_continuation_steps)
     {
       u_opt_ = data_interface_->Get_u_opt()->Clone();
       z_opt_ = data_interface_->Get_z_opt()->Clone();
@@ -98,7 +101,7 @@ namespace HDSA
       }
       else
       {
-        beta = z->Generate_Std_Vector(r_);
+        beta = HDSA::makePtr<HDSA::Std_Vector<RealT>>(r_, random_number_generator_);
       }
       Posterior_Update_Mean(*u, *z, *beta);
       return z;
@@ -121,7 +124,7 @@ namespace HDSA
       }
       else
       {
-        beta = data_interface_->Get_z_opt()->Generate_Std_Vector(r_);
+        beta = HDSA::makePtr<HDSA::Std_Vector<RealT>>(r_, random_number_generator_);
       }
 
       Posterior_Update_Mean(*u_post_vecs->mean, *z_post_vecs->mean, *beta);
