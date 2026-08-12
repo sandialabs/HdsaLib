@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# Check if git-clang-format is available
+if ! command -v git-clang-format &> /dev/null; then
+    echo "Error: git-clang-format is not installed or not in PATH."
+    echo "Please install clang-format before committing."
+    exit 1
+fi
+
+# Apply formatting to the working tree based on staged changes
+git clang-format HEAD >/dev/null 2>&1
+status=$?
+
+if [ $status -ne 0 ]; then
+    echo "❌ Code formatting failed."
+    exit 1
+fi
+
+echo "✅ Formatting applied to working tree."

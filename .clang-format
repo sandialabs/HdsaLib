@@ -1,0 +1,11 @@
+BasedOnStyle: LLVM
+ColumnLimit: 120
+BinPackArguments: true
+BinPackParameters: true
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortBlocksOnASingleLine: Always
+IndentCaseLabels: true
+DerivePointerAlignment: false
+PointerAlignment: Left
+AllowAllParametersOfDeclarationOnNextLine: false

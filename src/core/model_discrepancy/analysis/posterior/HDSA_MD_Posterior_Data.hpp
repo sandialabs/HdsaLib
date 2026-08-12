@@ -7,6 +7,10 @@
 #ifndef HDSA_MD_POSTERIOR_DATA_HPP
 #define HDSA_MD_POSTERIOR_DATA_HPP
 
+#include "HDSA_MD_Data_Interface.hpp"
+#include "HDSA_MD_u_Prior_Interface.hpp"
+#include "HDSA_MD_z_Prior_Interface.hpp"
+
 namespace HDSA
 {
 

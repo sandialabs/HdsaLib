@@ -43,6 +43,11 @@ namespace HDSA
     {
       return evals_;
     }    
+    
+    HDSA::Ptr<HDSA::MultiVector<RealT>> Get_Evecs(void) const
+    {
+      return evecs_;
+    }
 
     void Apply_V(HDSA::Vector<RealT> &z_out, const HDSA::Vector<RealT> &beta_in) const
     {

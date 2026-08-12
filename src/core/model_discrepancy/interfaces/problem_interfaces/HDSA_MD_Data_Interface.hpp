@@ -87,6 +87,53 @@ namespace HDSA
     // virtual functions
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+    virtual void Set_Z_and_D(
+        const HDSA::Ptr<HDSA::MultiVector<RealT>> &Z,
+        const HDSA::Ptr<HDSA::MultiVector<RealT>> &D)
+    {
+      HDSA_TEST_FOR_EXCEPTION(Z == HDSA::nullPtr, std::logic_error,
+                              "Error in HDSA::MD_Data_Interface::Set_Z_and_D: "
+                              "Input Z multivector is null." << std::endl);
+
+      HDSA_TEST_FOR_EXCEPTION(D == HDSA::nullPtr, std::logic_error,
+                              "Error in HDSA::MD_Data_Interface::Set_Z_and_D: "
+                              "Input D multivector is null." << std::endl);
+
+      HDSA_TEST_FOR_EXCEPTION(Z->Number_of_Vectors() != D->Number_of_Vectors(), std::logic_error,
+                              "Error in HDSA::MD_Data_Interface::Set_Z_and_D: "
+                              "Z and D must contain the same number of vectors." << std::endl);
+
+      if (!is_opt_data_loaded_)
+      {
+        Load_Opt_Data();
+      }
+
+      const int num_vecs = Z->Number_of_Vectors();
+
+      for (int k = 0; k < num_vecs; ++k)
+      {
+        HDSA_TEST_FOR_EXCEPTION((*Z)[k] == HDSA::nullPtr, std::logic_error,
+                                "Error in HDSA::MD_Data_Interface::Set_Z_and_D: "
+                                "Encountered null vector in Z." << std::endl);
+
+        HDSA_TEST_FOR_EXCEPTION((*D)[k] == HDSA::nullPtr, std::logic_error,
+                                "Error in HDSA::MD_Data_Interface::Set_Z_and_D: "
+                                "Encountered null vector in D." << std::endl);
+
+        HDSA_TEST_FOR_EXCEPTION((*Z)[k]->Dimension() != z_opt_->Dimension(), std::logic_error,
+                                "Error in HDSA::MD_Data_Interface::Set_Z_and_D: "
+                                "A Z vector has dimension inconsistent with z_opt." << std::endl);
+
+        HDSA_TEST_FOR_EXCEPTION((*D)[k]->Dimension() != u_opt_->Dimension(), std::logic_error,
+                                "Error in HDSA::MD_Data_Interface::Set_Z_and_D: "
+                                "A D vector has dimension inconsistent with u_opt." << std::endl);
+      }
+
+      Z_ = Z;
+      D_ = D;
+      is_hifi_data_loaded_ = true;
+    }
+
     virtual HDSA::Ptr<HDSA::MultiVector<RealT>> Read_Spatial_Node_Data() const
     {
       HDSA_TEST_FOR_EXCEPTION(true, std::logic_error,

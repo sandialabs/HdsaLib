@@ -45,11 +45,21 @@ namespace HDSA
                               "Error in HDSA::MD_u_Prior_Interface::Sample_with_Covariance_W_u_Inverse: Method must be implemented to use sampling algorithms" << std::endl);
     }
 
-    // Compute samples from a mean zero Gaussian with covariance W_u^{-1}
+    // Compute samples from a mean zero Gaussian with covariance (W_u+scalar*M_u)^{-1}
     virtual void Sample_with_Covariance_W_u_Plus_scalar_M_u_Inverse(HDSA::MultiVector<RealT> &samples, const RealT &scalar) const
     {
       HDSA_TEST_FOR_EXCEPTION(true, std::logic_error,
                               "Error in HDSA::MD_u_Prior_Interface::Sample_with_Covariance_W_u_Plus_scalar_M_u_Inverse: Method must be implemented to use sampling algorithms" << std::endl);
+    }
+
+    // Compute offline OED quantities
+    virtual HDSA::Ptr<HDSA::Dense_Matrix<RealT>> Get_W_u_Generalized_Eigenvalues() const
+    {
+      HDSA_TEST_FOR_EXCEPTION(true, std::logic_error,
+                              "Error in HDSA::MD_u_Prior_Interface::Get_W_u_Generalized_Eigenvalues: "
+                              "Method must be implemented to use OED algorithms." << std::endl);
+
+      return HDSA::nullPtr;
     }
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////
