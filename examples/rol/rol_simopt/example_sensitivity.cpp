@@ -81,7 +81,7 @@ int main(int argc, char *argv[])
   RealT alpha_z = parlist->sublist("MD Prior").get("alpha_z", 1.0 / std::pow(100.0, 2.0));
   RealT beta_z = parlist->sublist("MD Prior").get("beta_z", 1.e-2);
   RealT alpha_d = parlist->sublist("MD Prior").get("alpha_d", 1.e-3);
-  HDSA::Ptr<HDSA::MD_Data_Interface<RealT>> data_interface = HDSA::makePtr<Data_Interface_SimOptTestProb<RealT>>(m, random_number_generator);
+  HDSA::Ptr<HDSA::MD_Data_Interface<RealT>> data_interface = HDSA::makePtr<Data_Interface_SimOptTestProb<RealT>>(m);
   HDSA::Ptr<HDSA::MD_u_Prior_Interface<RealT>> u_prior_interface = HDSA::makePtr<Elliptic_u_Prior_Interface_SimOptTestProb<RealT>>(alpha_u, beta_u, m);
   HDSA::Ptr<HDSA::MD_z_Prior_Interface<RealT>> z_prior_interface = HDSA::makePtr<Elliptic_z_Prior_Interface_SimOptTestProb<RealT>>(alpha_z, beta_z, m, random_number_generator);
 

@@ -16,10 +16,9 @@ class Data_Interface_SimOptTestProb : public HDSA::MD_Data_Interface<RealT>
 private:
   int m_;                                  // Mesh resolution
   HDSA::Ptr<HDSA::Dense_Matrix<RealT>> x_; // Mesh nodes on [0,1]
-  HDSA::Ptr<HDSA::Random_Number_Generator<RealT>> random_number_generator_;
 
 public:
-  Data_Interface_SimOptTestProb(int &m, HDSA::Ptr<HDSA::Random_Number_Generator<RealT>> &random_number_generator) : random_number_generator_(random_number_generator)
+  Data_Interface_SimOptTestProb(int &m) 
   {
     m_ = m;
 
@@ -43,7 +42,7 @@ public:
     {
       (*u_ptr)[i] = std::pow(1.0 + (*x_)(i, 0), 3.0);
     }
-    HDSA::Ptr<HDSA::Vector<RealT>> u_opt = HDSA::makePtr<HDSA::ROL_Vector<RealT>>(*up, random_number_generator_);
+    HDSA::Ptr<HDSA::Vector<RealT>> u_opt = HDSA::makePtr<HDSA::ROL_Vector<RealT>>(*up);
     HDSA::ROL_Vector<RealT> &u_opt_rol = dynamic_cast<HDSA::ROL_Vector<RealT> &>(*u_opt);
     u_opt_rol.rol_vec->set(*up);
     return u_opt;
@@ -58,7 +57,7 @@ public:
     {
       (*z_ptr)[i] = 1.0 + (*x_)(i, 0);
     }
-    HDSA::Ptr<HDSA::Vector<RealT>> z_opt = HDSA::makePtr<HDSA::ROL_Vector<RealT>>(*zp, random_number_generator_);
+    HDSA::Ptr<HDSA::Vector<RealT>> z_opt = HDSA::makePtr<HDSA::ROL_Vector<RealT>>(*zp);
     HDSA::ROL_Vector<RealT> &z_opt_rol = dynamic_cast<HDSA::ROL_Vector<RealT> &>(*z_opt);
     z_opt_rol.rol_vec->set(*zp);
     return z_opt;
@@ -93,7 +92,7 @@ public:
     {
       (*u_ptr)[i] = 0.2 * std::pow(1.0 + (*x_)(i, 0), 3.0);
     }
-    HDSA::Ptr<HDSA::Vector<RealT>> u_hdsa = HDSA::makePtr<HDSA::ROL_Vector<RealT>>(*up, random_number_generator_);
+    HDSA::Ptr<HDSA::Vector<RealT>> u_hdsa = HDSA::makePtr<HDSA::ROL_Vector<RealT>>(*up);
     HDSA::ROL_Vector<RealT> &u_hdsa_rol = dynamic_cast<HDSA::ROL_Vector<RealT> &>(*u_hdsa);
     u_hdsa_rol.rol_vec->set(*up);
     HDSA::Ptr<HDSA::MultiVector<RealT>> Y = HDSA::makePtr<HDSA::MultiVector<RealT>>(2, *u_hdsa);

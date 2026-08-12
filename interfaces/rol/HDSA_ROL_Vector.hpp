@@ -10,7 +10,6 @@
 #include "ROL_Vector.hpp"
 #include "ROL_StdVector.hpp"
 #include "HDSA_Ptr.hpp"
-#include "HDSA_Random_Number_Generator.hpp"
 
 namespace HDSA
 {
@@ -22,19 +21,18 @@ namespace HDSA
   public:
     ROL::Ptr<ROL::Vector<RealT>> rol_vec;
     static ROL::Elementwise::NormalRandom<RealT> nr;
-    HDSA::Ptr<HDSA::Random_Number_Generator<RealT>> random_number_generator;
 
-    ROL_Vector(ROL::Ptr<ROL::Vector<RealT>> &rol_vec_in, const HDSA::Ptr<HDSA::Random_Number_Generator<RealT>> &random_number_generator_in) : rol_vec(rol_vec_in), random_number_generator(random_number_generator_in)
+    ROL_Vector(ROL::Ptr<ROL::Vector<RealT>> &rol_vec_in) : rol_vec(rol_vec_in)
     {
     }
 
-    ROL_Vector(ROL::Vector<RealT> &rol_vec_in, const HDSA::Ptr<HDSA::Random_Number_Generator<RealT>> &random_number_generator_in) : random_number_generator(random_number_generator_in)
+    ROL_Vector(ROL::Vector<RealT> &rol_vec_in) 
     {
       rol_vec = rol_vec_in.clone();
       rol_vec->set(rol_vec_in);
     }
 
-    ROL_Vector(const ROL::Ptr<ROL::Vector<RealT>> &rol_vec_in, const HDSA::Ptr<HDSA::Random_Number_Generator<RealT>> &random_number_generator_in) : rol_vec(rol_vec_in), random_number_generator(random_number_generator_in) {};
+    ROL_Vector(const ROL::Ptr<ROL::Vector<RealT>> &rol_vec_in) : rol_vec(rol_vec_in) {};
 
     virtual ~ROL_Vector()
     {
@@ -45,7 +43,7 @@ namespace HDSA
     {
       ROL::Ptr<ROL::Vector<RealT>> rol_vec_clone = rol_vec->clone();
       rol_vec_clone->zero(); // ROL clone() vector is not initialized
-      return Teuchos::rcp(new HDSA::ROL_Vector<RealT>(rol_vec_clone,random_number_generator));
+      return Teuchos::rcp(new HDSA::ROL_Vector<RealT>(rol_vec_clone));
     }
 
     // compute the Dot product of this and x
