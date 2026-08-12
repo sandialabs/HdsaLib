@@ -22,5 +22,18 @@ add_custom_command(TARGET synthetic_test_OED_example_sensitivity.exe POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy
         ${SOURCE_DIR}/random_numbers.txt
         ${TARGET_DIR}/random_numbers.txt
+    # Copy the specified files from the reference_output directory
+    COMMAND ${CMAKE_COMMAND} -E copy
+        ${SOURCE_DIR}/reference_output/sequential_oed_design_3.txt
+        ${TARGET_DIR}/reference_output/sequential_oed_design_3.txt
+    COMMAND ${CMAKE_COMMAND} -E copy
+        ${SOURCE_DIR}/reference_output/sequential_oed_design_5.txt
+        ${TARGET_DIR}/reference_output/sequential_oed_design_5.txt
+    COMMAND ${CMAKE_COMMAND} -E copy
+        ${SOURCE_DIR}/reference_output/sequential_oed_posterior_z_bar_2.txt
+        ${TARGET_DIR}/reference_output/sequential_oed_posterior_z_bar_2.txt
+    COMMAND ${CMAKE_COMMAND} -E copy
+        ${SOURCE_DIR}/reference_output/sequential_oed_posterior_z_bar_4.txt
+        ${TARGET_DIR}/reference_output/sequential_oed_posterior_z_bar_4.txt
     COMMENT "Copying files to the output directory"
 )

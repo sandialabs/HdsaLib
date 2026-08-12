@@ -37,6 +37,7 @@ def main():
         'synthetic_test_transient_control',
         'synthetic_test_multi_state',
         'synthetic_test_transient_multi_state',
+        'synthetic_test_OED',
         'synthetic_test_OUU',
         'lumped_mass_unit_test'
     ]

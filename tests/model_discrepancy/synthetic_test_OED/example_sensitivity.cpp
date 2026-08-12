@@ -202,7 +202,7 @@ int main(int argc, char* argv[]) {
       HDSA::makePtr<HDSA::Random_Number_Generator<RealT>>(num_random_numbers, random_number_file);
 
   HDSA::Ptr<HDSA::MD_Data_Interface<RealT>> data_interface =
-      HDSA::makePtr<MD_Data_Interface_synthetic_test_OED<RealT>>(random_number_generator, comm);
+      HDSA::makePtr<MD_Data_Interface_synthetic_test_OED<RealT>>();
 
   HDSA::Ptr<HDSA::MD_Opt_Prob_Interface<RealT>> opt_prob_interface =
       HDSA::makePtr<MD_Opt_Prob_Interface_synthetic_test_OED<RealT>>();
@@ -359,11 +359,11 @@ int main(int argc, char* argv[]) {
     const int num_continuation_steps = 3;
 
     HDSA::Ptr<HDSA::MD_Continuation_Update<RealT>> cont_update = HDSA::makePtr<HDSA::MD_Continuation_Update<RealT>>(
-        data_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis, num_continuation_steps);
+        data_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis, random_number_generator, num_continuation_steps);
 
     HDSA::Ptr<HDSA::Vector<RealT>> u_k = data_interface->Get_u_opt()->Clone();
     HDSA::Ptr<HDSA::Vector<RealT>> z_k = data_interface->Get_z_opt()->Clone();
-    HDSA::Ptr<HDSA::Vector<RealT>> beta_k = HDSA::makePtr<HDSA::Std_Vector<RealT>>(r, random_number_generator, comm);
+    HDSA::Ptr<HDSA::Vector<RealT>> beta_k = HDSA::makePtr<HDSA::Std_Vector<RealT>>(r);
 
     cont_update->Posterior_Update_Mean(*u_k, *z_k, *beta_k);
 

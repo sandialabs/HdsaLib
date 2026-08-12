@@ -15,13 +15,10 @@ template <class RealT> class MD_Data_Interface_synthetic_test_OED : public HDSA:
 private:
   int m_;                                  // Mesh resolution
   HDSA::Ptr<HDSA::Dense_Matrix<RealT>> x_; // Mesh nodes on [0,1]
-  const HDSA::Ptr<HDSA::Random_Number_Generator<RealT>> random_number_generator_;
-  const HDSA::Ptr<const HDSA::Comm<int>> comm_;
 
 public:
-  MD_Data_Interface_synthetic_test_OED(const HDSA::Ptr<HDSA::Random_Number_Generator<RealT>>& random_number_generator,
-                                       const HDSA::Ptr<const HDSA::Comm<int>>& comm)
-      : random_number_generator_(random_number_generator), comm_(comm) {
+  MD_Data_Interface_synthetic_test_OED()
+ {
     m_ = 51;
     x_ = HDSA::makePtr<HDSA::Dense_Matrix<RealT>>(m_, 1);
     for (int k = 0; k < m_; k++) {
@@ -33,7 +30,7 @@ public:
 
   HDSA::Ptr<HDSA::Vector<RealT>> Load_Optimal_u() const {
     HDSA::Ptr<HDSA::Std_Vector<RealT>> u_opt =
-        HDSA::makePtr<HDSA::Std_Vector<RealT>>(m_, random_number_generator_, comm_);
+        HDSA::makePtr<HDSA::Std_Vector<RealT>>(m_);
     for (int k = 0; k < m_; k++) {
       u_opt->Set_Entry(k, std::pow((*x_)(k, 0) + 1.0, 3.0));
     }
@@ -42,7 +39,7 @@ public:
 
   HDSA::Ptr<HDSA::Vector<RealT>> Load_Optimal_z() const {
     HDSA::Ptr<HDSA::Std_Vector<RealT>> z_opt =
-        HDSA::makePtr<HDSA::Std_Vector<RealT>>(m_, random_number_generator_, comm_);
+        HDSA::makePtr<HDSA::Std_Vector<RealT>>(m_);
     for (int k = 0; k < m_; k++) {
       z_opt->Set_Entry(k, (*x_)(k, 0) + 1.0);
     }
@@ -50,7 +47,7 @@ public:
   }
 
   HDSA::Ptr<HDSA::MultiVector<RealT>> Load_Z_Data() const {
-    HDSA::Ptr<HDSA::Std_Vector<RealT>> z = HDSA::makePtr<HDSA::Std_Vector<RealT>>(m_, random_number_generator_, comm_);
+    HDSA::Ptr<HDSA::Std_Vector<RealT>> z = HDSA::makePtr<HDSA::Std_Vector<RealT>>(m_);
     HDSA::Ptr<HDSA::MultiVector<RealT>> Z = HDSA::makePtr<HDSA::MultiVector<RealT>>(2, *z);
 
     HDSA::Ptr<HDSA::Vector<RealT>> z0 = (*Z)[0];
@@ -67,7 +64,7 @@ public:
   }
 
   HDSA::Ptr<HDSA::MultiVector<RealT>> Load_D_Data() const {
-    HDSA::Ptr<HDSA::Std_Vector<RealT>> d = HDSA::makePtr<HDSA::Std_Vector<RealT>>(m_, random_number_generator_, comm_);
+    HDSA::Ptr<HDSA::Std_Vector<RealT>> d = HDSA::makePtr<HDSA::Std_Vector<RealT>>(m_);
     HDSA::Ptr<HDSA::MultiVector<RealT>> D = HDSA::makePtr<HDSA::MultiVector<RealT>>(2, *d);
 
     HDSA::Ptr<HDSA::Vector<RealT>> d0 = (*D)[0];
