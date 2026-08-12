@@ -29,10 +29,10 @@ namespace HDSA
     HDSA::Ptr<HDSA::Hessian_Inversion<RealT>> hess_invert_;
 
   public:
-    MD_Hessian_Analysis(const HDSA::Ptr<HDSA::MD_Opt_Prob_Interface<RealT>> &opt_prob_interface, const HDSA::Ptr<HDSA::MD_z_Prior_Interface<RealT>> &z_prior_interface) : opt_prob_interface_(opt_prob_interface), z_prior_interface_(z_prior_interface)
+    MD_Hessian_Analysis(const HDSA::Ptr<HDSA::MD_Opt_Prob_Interface<RealT>> &opt_prob_interface, const HDSA::Ptr<HDSA::MD_z_Prior_Interface<RealT>> &z_prior_interface, int verbosity = 0, RealT tol = 1.e-8, std::string solver = "CG") : opt_prob_interface_(opt_prob_interface), z_prior_interface_(z_prior_interface)
     {
       use_projector_ = false;
-      hess_invert_ = HDSA::makePtr<MD_Hessian_Inversion<RealT>>(opt_prob_interface);
+      hess_invert_ = HDSA::makePtr<MD_Hessian_Inversion<RealT>>(opt_prob_interface, verbosity, tol, solver);
     }
 
     virtual ~MD_Hessian_Analysis()
@@ -139,7 +139,7 @@ namespace HDSA
       HDSA::Ptr<HDSA::MD_Opt_Prob_Interface<ScalarType>> opt_prob_interface_;
 
     public:
-      MD_Hessian_Inversion(const HDSA::Ptr<HDSA::MD_Opt_Prob_Interface<ScalarType>> opt_prob_interface) : opt_prob_interface_(opt_prob_interface)
+      MD_Hessian_Inversion(const HDSA::Ptr<HDSA::MD_Opt_Prob_Interface<ScalarType>> &opt_prob_interface, const int &verbosity, const RealT &tol, const std::string &solver) : HDSA::Hessian_Inversion<ScalarType>(verbosity, tol, solver), opt_prob_interface_(opt_prob_interface)
       {
       }
 

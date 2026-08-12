@@ -651,7 +651,9 @@ public:
 
     if (execute_optimal_solution_update)
     {
-      HDSA::Ptr<HDSA::MD_Hessian_Analysis<ScalarT>> hessian_analysis = HDSA::makePtr<HDSA::MD_Hessian_Analysis<ScalarT>>(opt_prob_interface, z_prior_interface);
+      RealT hessian_tol = HDSAsettings.sublist("Configuration").get<RealT>("Hessian Solve Tolerance", 1.e-4);
+      std::string hessian_solver = "GMRES";
+      HDSA::Ptr<HDSA::MD_Hessian_Analysis<ScalarT>> hessian_analysis = HDSA::makePtr<HDSA::MD_Hessian_Analysis<ScalarT>>(opt_prob_interface, z_prior_interface, hdsa_verbosity, hessian_tol, hessian_solver);
       if (hessian_num_eig_vals > 0)
       {
         if (hdsa_verbosity > 1)
