@@ -476,19 +476,20 @@ namespace HDSA
 
       HDSA::Ptr<HDSA::Vector<RealT>> u_tmp = current_u_->Clone();
       current_disc_ops_->Apply_z_Jacobian(*u_tmp, *z_in, *current_z_, current_t_);
-      opt_prob_interface_->Apply_Misfit_Hessian(*u_tmp, *u_tmp, *u_plus_delta, *current_z_);
+
+      HDSA::Ptr<HDSA::Vector<RealT>> u_tmp2 = current_u_->Clone();
+      opt_prob_interface_->Apply_Misfit_Hessian(*u_tmp2, *u_tmp, *u_plus_delta, *current_z_);
 
       HDSA::Ptr<HDSA::Vector<RealT>> z_tmp1 = z_opt_->Clone();
-      opt_prob_interface_->Apply_Solution_Operator_z_Jacobian_Transpose(*z_tmp1, *u_tmp, *current_z_);
+      opt_prob_interface_->Apply_Solution_Operator_z_Jacobian_Transpose(*z_tmp1, *u_tmp2, *current_z_);
       z_out->Plus(*z_tmp1);
 
       HDSA::Ptr<HDSA::Vector<RealT>> z_tmp2 = z_opt_->Clone();
-      current_disc_ops_->Apply_z_Jacobian_Transpose(*z_tmp2, *u_tmp, *current_z_, current_t_);
+      current_disc_ops_->Apply_z_Jacobian_Transpose(*z_tmp2, *u_tmp2, *current_z_, current_t_);
       z_out->Plus(*z_tmp2);
 
-      HDSA::Ptr<HDSA::Vector<RealT>> u_tmp2 = current_u_->Clone();
-      opt_prob_interface_->Apply_Solution_Operator_z_Jacobian(*u_tmp2, *z_in, *current_z_);
-      opt_prob_interface_->Apply_Misfit_Hessian(*u_tmp2, *u_tmp2, *u_plus_delta, *current_z_);
+      opt_prob_interface_->Apply_Solution_Operator_z_Jacobian(*u_tmp, *z_in, *current_z_);
+      opt_prob_interface_->Apply_Misfit_Hessian(*u_tmp2, *u_tmp, *u_plus_delta, *current_z_);
 
       HDSA::Ptr<HDSA::Vector<RealT>> z_tmp3 = z_opt_->Clone();
       current_disc_ops_->Apply_z_Jacobian_Transpose(*z_tmp3, *u_tmp2, *current_z_, current_t_);
@@ -510,13 +511,15 @@ namespace HDSA
 
       HDSA::Ptr<HDSA::Vector<RealT>> u_tmp = current_u_->Clone();
       current_disc_ops_->Apply_theta_Jacobian(*u_tmp, *current_z_);
-      opt_prob_interface_->Apply_Misfit_Hessian(*u_tmp, *u_tmp, *u_plus_delta, *current_z_);
+
+      HDSA::Ptr<HDSA::Vector<RealT>> u_tmp2 = current_u_->Clone();
+      opt_prob_interface_->Apply_Misfit_Hessian(*u_tmp2, *u_tmp, *u_plus_delta, *current_z_);
 
       HDSA::Ptr<HDSA::Vector<RealT>> z_out = z_opt_->Clone();
-      opt_prob_interface_->Apply_Solution_Operator_z_Jacobian_Transpose(*z_out, *u_tmp, *current_z_);
+      opt_prob_interface_->Apply_Solution_Operator_z_Jacobian_Transpose(*z_out, *u_tmp2, *current_z_);
 
       HDSA::Ptr<HDSA::Vector<RealT>> z_tmp1 = z_opt_->Clone();
-      current_disc_ops_->Apply_z_Jacobian_Transpose(*z_tmp1, *u_tmp, *current_z_, current_t_);
+      current_disc_ops_->Apply_z_Jacobian_Transpose(*z_tmp1, *u_tmp2, *current_z_, current_t_);
       z_out->Plus(*z_tmp1);
 
       HDSA::Ptr<HDSA::Vector<RealT>> state_grad = u_opt_->Clone();
