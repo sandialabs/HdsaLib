@@ -1,7 +1,7 @@
 import numpy as np
 
 # Desired spacing
-h = 0.1
+h = 0.3
 
 # Domain limits
 Lx, Ly, Lz = 30.0, 12.0, 3.0

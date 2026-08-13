@@ -5,6 +5,5 @@ ANONYMOUS:
     analysis type: readExo+forward
     readExo+forward:
       DataLoadParameters:
-        #ExoFile: "mean.exo" # For reading HDSA_MD update
-        ExoFile: "z_update.exo" # For reading HDSA_BF update
+        ExoFile: "z_update.exo"
 ...

@@ -12,12 +12,12 @@ ANONYMOUS:
     ymax: 12.0
     zmin: 0.0
     zmax: 3.0
-    NX: 90
-    NY: 36
-    NZ: 9
+    NX: 100
+    NY: 40
+    NZ: 10
   Physics: 
     modules: thermal, linearelasticity
-    alpha_T: 0.00025
+    alpha_T: 0.0005 #0.00035
     Dirichlet conditions:
       T:
         top: 0.0

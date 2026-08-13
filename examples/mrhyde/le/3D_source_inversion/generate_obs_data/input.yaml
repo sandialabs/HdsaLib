@@ -12,12 +12,12 @@ ANONYMOUS:
     ymax: 12.0
     zmin: 0.0
     zmax: 3.0
-    NX: 90
-    NY: 36
-    NZ: 9
+    NX: 100
+    NY: 40
+    NZ: 10
   Physics: 
     modules: thermal, linearelasticity
-    alpha_T: 0.00025
+    alpha_T: 0.0005
     Dirichlet conditions:
       T:
         top: 0.0
@@ -49,6 +49,39 @@ ANONYMOUS:
     compute response: false
     compute objective: true
     write solution: true
+    Objective functions:
+      val_dx:
+        type: sensors
+        sensor points file: sensor_points.dat
+        save sensor data: true
+        sensor data file: sensor_data_dx.dat
+        response: 'dx'
+        weight: 1.0
+      val_dy:
+        type: sensors
+        sensor points file: sensor_points.dat
+        save sensor data: true
+        sensor data file: sensor_data_dy.dat
+        response: 'dy'
+        weight: 1.0
+      val_dz:
+        type: sensors
+        sensor points file: sensor_points.dat
+        save sensor data: true
+        sensor data file: sensor_data_dz.dat
+        response: 'dz'
+        weight: 1.0
+        Regularization functions:
+          regv0:
+            type: integrated
+            location: volume
+            function: (lambdafield-10.0)^2
+            weight: 1.e-2
+          regv1:
+            type: integrated
+            location: volume
+            function: 'grad(lambdafield)[x]*grad(lambdafield)[x] + grad(lambdafield)[y]*grad(lambdafield)[y] + grad(lambdafield)[z]*grad(lambdafield)[z]'
+            weight: 1.e-3
   Parameters input file: input_params.yaml
   Analysis:
     analysis type: forward

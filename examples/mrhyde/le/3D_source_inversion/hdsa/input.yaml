@@ -12,9 +12,9 @@ ANONYMOUS:
     ymax: 12.0
     zmin: 0.0
     zmax: 3.0
-    NX: 90
-    NY: 36
-    NZ: 9
+    NX: 100
+    NY: 40
+    NZ: 10
   Physics: 
     modules: linearelasticity
     Dirichlet conditions:

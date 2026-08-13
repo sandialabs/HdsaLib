@@ -6,6 +6,7 @@ ANONYMOUS:
     HDSA:
       Configuration:
         do_bifidelity_correction: true
+        Hessian Solve Tolerance: 0.0003
         verbosity: 12
       DataLoadParameters:
         OptimalSolutionExoFile: "output_lofi_opt.exo"

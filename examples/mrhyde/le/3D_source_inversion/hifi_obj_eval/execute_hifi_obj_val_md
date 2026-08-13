@@ -1,0 +1,16 @@
+# Ensure that the MrHyDE executable has been linked to the current directory under the name "mrhyde"
+
+NPROCS=10
+
+# Set link to optimization solution
+ln -s ../hdsa/hdsa_output/posterior/z_update/mean.exo* . # For reading HDSA_MD
+ln -s ../optimization/*.dat .
+
+for j in 0 1 2 3 4 5 6 7 8 9; do
+    mv "mean.exo.10.0$j" "z_update.exo.10.0$j"
+done
+
+mpiexec -n ${NPROCS} mrhyde
+
+# Change file name
+mv obj_val.txt hifi_obj_hdsa_z_val_md.txt

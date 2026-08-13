@@ -5,27 +5,34 @@ ANONYMOUS:
     analysis type: HDSA
     HDSA:
       Configuration:
-        num_prior_samples: 10
-        num_posterior_samples: 10
-        execute_prior_discrepancy_sampling: true
-        execute_posterior_discrepancy_sampling: true
+        num_prior_samples: 0 
+        num_posterior_samples: 0 
+        execute_prior_discrepancy_sampling: false 
+        execute_posterior_discrepancy_sampling: false 
         execute_optimal_solution_update: true
-        verbosity: 1
+        verbosity: 11
+        Hessian Solve Tolerance: 3.e-4
       Prior Computation:
         State Prior: "Bilaplacian"
         use_incomplete_prec: true
       HyperParameters:
         dx:
+          alpha_u: 0.005
           beta_u: 4.0E-2
+          alpha_d: 4.0E-06
         dy:
+          alpha_u: 0.02
           beta_u: 4.0E-2
+          alpha_d: 1.0E-05
         dz:
+          alpha_u: 0.003
           beta_u: 4.0E-2
+          alpha_d: 1.0E-06
         z:
           alpha_z: 1.0E-5
           beta_z: 4.0E-2
-        hessian_num_eig_vals: 5
-        hessian_oversampling: 5
+        hessian_num_eig_vals: 0 #1000
+        hessian_oversampling: 20
       DataLoadParameters:
         OptimalSolutionExoFile: "output_lofi_opt.exo"
         NumHifi: 1
