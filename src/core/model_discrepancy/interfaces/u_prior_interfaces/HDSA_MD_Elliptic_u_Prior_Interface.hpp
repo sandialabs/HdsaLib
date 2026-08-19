@@ -114,6 +114,21 @@ namespace HDSA
       }
     }
 
+    virtual HDSA::Ptr<HDSA::Dense_Matrix<RealT>> Get_W_u_Generalized_Eigenvalues() const {
+      const RealT alpha_u = this->Get_alpha_u();
+      const int num_sing_vals = sing_vals_->Number_of_Rows();
+      HDSA::Ptr<HDSA::Dense_Matrix<RealT>> lambda_js = HDSA::makePtr<HDSA::Dense_Matrix<RealT>>(num_sing_vals, 1);
+      for (int j = 0; j < num_sing_vals; ++j) {
+        const RealT sigma_j = (*sing_vals_)(j, 0);
+        HDSA_TEST_FOR_EXCEPTION(sigma_j == static_cast<RealT>(0), std::logic_error,
+                                "Error in HDSA::MD_Elliptic_u_Prior_Interface::Get_W_u_Generalized_Eigenvalues: "
+                                "Encountered zero singular value."
+                                    << std::endl);
+        lambda_js->Set_Entry(j, 0, static_cast<RealT>(1) / (alpha_u * std::pow(sigma_j, 2.0)));
+      }
+      return lambda_js;
+    }
+
     // Compute samples from a mean zero Gaussian with covariance W_u^{-1}
     virtual void Sample_with_Covariance_W_u_Acute_Inverse(HDSA::MultiVector<RealT> &samples) const
     {

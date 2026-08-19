@@ -91,6 +91,10 @@ namespace HDSA
     {
       alpha_u_ = alpha_u_new;
     }
+
+    RealT Get_alpha_u() const {
+      return alpha_u_;
+    }
   };
 
 }
