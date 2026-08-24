@@ -24,7 +24,8 @@ def main():
     # Define the base directory where the subdirectories are located
     base_directory = '.'  # Change this to the appropriate base directory if needed
     subdirectories = [
-        'synthetic_test'
+        'synthetic_test',
+        'synthetic_test_OUU'
     ]
 
     # Execute the script in each subdirectory

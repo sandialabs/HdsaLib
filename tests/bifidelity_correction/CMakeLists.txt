@@ -1,4 +1,5 @@
 add_subdirectory(synthetic_test)
+add_subdirectory(synthetic_test_OUU)
 
 # Define the source directory and the target directory
 set(SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
