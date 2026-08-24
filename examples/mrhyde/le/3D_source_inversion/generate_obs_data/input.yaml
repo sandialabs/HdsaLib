@@ -25,11 +25,11 @@ ANONYMOUS:
         top: 0.0
         bottom: 0.0
       dy:
-        left: 4.0*cos(pi*y/12.0)
-        right: -4.0*cos(pi*y/12.0)
+        left: -2.5*cos(pi*y/12.0)
+        right: -2.5*cos(pi*y/12.0)
       dz:
-        left: 1.0*cos(pi*y/12.0)
-        right: -1.0*cos(pi*y/12.0)
+        left: 2.0*cos(pi*y/12.0)
+        right: -2.0*cos(pi*y/12.0)
   Discretization:
     order:
       T: 1
@@ -49,39 +49,39 @@ ANONYMOUS:
     compute response: false
     compute objective: true
     write solution: true
-    Objective functions:
-      val_dx:
-        type: sensors
-        sensor points file: sensor_points.dat
-        save sensor data: true
-        sensor data file: sensor_data_dx.dat
-        response: 'dx'
-        weight: 1.0
-      val_dy:
-        type: sensors
-        sensor points file: sensor_points.dat
-        save sensor data: true
-        sensor data file: sensor_data_dy.dat
-        response: 'dy'
-        weight: 1.0
-      val_dz:
-        type: sensors
-        sensor points file: sensor_points.dat
-        save sensor data: true
-        sensor data file: sensor_data_dz.dat
-        response: 'dz'
-        weight: 1.0
-        Regularization functions:
-          regv0:
-            type: integrated
-            location: volume
-            function: (lambdafield-10.0)^2
-            weight: 1.e-2
-          regv1:
-            type: integrated
-            location: volume
-            function: 'grad(lambdafield)[x]*grad(lambdafield)[x] + grad(lambdafield)[y]*grad(lambdafield)[y] + grad(lambdafield)[z]*grad(lambdafield)[z]'
-            weight: 1.e-3
+    # Objective functions:
+    #   val_dx:
+    #     type: sensors
+    #     sensor points file: sensor_points.dat
+    #     save sensor data: true
+    #     sensor data file: sensor_data_dx.dat
+    #     response: 'dx'
+    #     weight: 1.0
+    #   val_dy:
+    #     type: sensors
+    #     sensor points file: sensor_points.dat
+    #     save sensor data: true
+    #     sensor data file: sensor_data_dy.dat
+    #     response: 'dy'
+    #     weight: 1.0
+    #   val_dz:
+    #     type: sensors
+    #     sensor points file: sensor_points.dat
+    #     save sensor data: true
+    #     sensor data file: sensor_data_dz.dat
+    #     response: 'dz'
+    #     weight: 1.0
+    #     Regularization functions:
+    #       regv0:
+    #         type: integrated
+    #         location: volume
+    #         function: (lambdafield-10.0)^2
+    #         weight: 1.e-2
+    #       regv1:
+    #         type: integrated
+    #         location: volume
+    #         function: 'grad(lambdafield)[x]*grad(lambdafield)[x] + grad(lambdafield)[y]*grad(lambdafield)[y] + grad(lambdafield)[z]*grad(lambdafield)[z]'
+    #         weight: 1.e-3
   Parameters input file: input_params.yaml
   Analysis:
     analysis type: forward

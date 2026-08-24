@@ -25,11 +25,11 @@ ANONYMOUS:
         top: 0.0
         bottom: 0.0
       dy:
-        left: 4.0*cos(pi*y/12.0)
-        right: -4.0*cos(pi*y/12.0)
+        left: -2.5*cos(pi*y/12.0)
+        right: -2.5*cos(pi*y/12.0)
       dz:
-        left: 1.0*cos(pi*y/12.0)
-        right: -1.0*cos(pi*y/12.0)
+        left: 2.0*cos(pi*y/12.0)
+        right: -2.0*cos(pi*y/12.0)
   Discretization:
     order:
       T: 1
