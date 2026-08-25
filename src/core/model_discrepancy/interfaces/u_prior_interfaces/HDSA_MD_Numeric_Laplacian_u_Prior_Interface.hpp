@@ -114,7 +114,7 @@ namespace HDSA
       E_u_->Set(*M_);
       E_u_->Scaled_Plus(beta_u_new, *S_);
       beta_u_ = beta_u_new;
-      E_u_solver_ = HDSA::makePtr<HDSA::Sparse_Matrix_Solver<RealT>>(E_u_);
+      E_u_solver_ = E_u_->Get_Sparse_Matrix_Solver();
     }
   };
 }

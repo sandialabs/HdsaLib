@@ -161,7 +161,7 @@ namespace HDSA
       W_u_acute_plus_scalar_M_u_.push_back(A);
 
       std::string A_solver_message = "W_u_acute_plus_scalar_M_u_Inverse";
-      HDSA::Ptr<HDSA::Sparse_Matrix_Solver<RealT>> A_solver = HDSA::makePtr<HDSA::Sparse_Matrix_Solver<RealT>>(A, use_direct_solvers_, verbosity_, out_stream_, A_solver_message);
+      HDSA::Ptr<HDSA::Sparse_Matrix_Solver<RealT>> A_solver = A->Get_Sparse_Matrix_Solver(use_direct_solvers_, verbosity_, out_stream_, A_solver_message);
       std::string A_sqrt_solver_message = "W_u_acute_plus_scalar_M_u_Sqrt";
       HDSA::Ptr<HDSA::Sparse_Matrix_Sqrt<RealT>> A_sqrt = HDSA::makePtr<HDSA::Sparse_Matrix_Sqrt<RealT>>(A, A_sqrt_solver_message);
 
@@ -171,7 +171,7 @@ namespace HDSA
         {
           timer_->Start_Timer();
         }
-        HDSA::Ptr<HDSA::Incomplete_Chol_Factor<RealT>> L = HDSA::makePtr<HDSA::Incomplete_Chol_Factor<RealT>>(A);
+        HDSA::Ptr<HDSA::Incomplete_Chol_Factor<RealT>> L = A->Get_Incomplete_Chol_Factor();
         A_solver->Set_Incomplete_Factor(L);
         A_sqrt->Set_Incomplete_Factor(L);
         if (verbosity_ > 2)
@@ -261,14 +261,14 @@ namespace HDSA
 
       E_u_->Set_Symmetric();
       std::string A_solver_message = "E_u_Inverse";
-      E_u_solver_ = HDSA::makePtr<HDSA::Sparse_Matrix_Solver<RealT>>(E_u_, use_direct_solvers_, verbosity_, out_stream_, A_solver_message);
+      E_u_solver_ = E_u_->Get_Sparse_Matrix_Solver(use_direct_solvers_, verbosity_, out_stream_, A_solver_message);
       if (use_incomplete_prec_)
       {
         if (verbosity_ > 3)
         {
           timer_->Start_Timer();
         }
-        HDSA::Ptr<HDSA::Incomplete_Chol_Factor<RealT>> L = HDSA::makePtr<HDSA::Incomplete_Chol_Factor<RealT>>(E_u_);
+        HDSA::Ptr<HDSA::Incomplete_Chol_Factor<RealT>> L = E_u_->Get_Incomplete_Chol_Factor();
         E_u_solver_->Set_Incomplete_Factor(L);
         if (verbosity_ > 3)
         {

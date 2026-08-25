@@ -15,6 +15,7 @@
 #include "HDSA_MD_Opt_Prob_Interface_MrHyDE.hpp"
 #include "HDSA_Output_Writer_MrHyDE.hpp"
 #include "HDSA_Sparse_Matrix.hpp"
+#include "HDSA_Sparse_Matrix_Trilinos.hpp"
 #include "HDSA_MD_Multi_State_u_Hyperparameter_Interface.hpp"
 #include "HDSA_MD_u_Hyperparameter_Interface_MrHyDE.hpp"
 #include "HDSA_MD_z_Hyperparameter_Interface_MrHyDE.hpp"
@@ -367,8 +368,8 @@ public:
 
     vector<string> blockNames = solver_->mesh->getBlockNames();
     HDSA::Ptr<Prior_Operators_Interface_MrHyDE<ScalarT>> prior_operator_interface = HDSA::makePtr<Prior_Operators_Interface_MrHyDE<ScalarT>>(comm_, settings_, blockNames);
-    HDSA::Ptr<HDSA::Sparse_Matrix<ScalarT>> M = HDSA::makePtr<HDSA::Sparse_Matrix<ScalarT>>(prior_operator_interface->M);
-    HDSA::Ptr<HDSA::Sparse_Matrix<ScalarT>> S = HDSA::makePtr<HDSA::Sparse_Matrix<ScalarT>>(prior_operator_interface->S);
+    HDSA::Ptr<HDSA::Sparse_Matrix<ScalarT>> M = HDSA::makePtr<HDSA::Sparse_Matrix_Trilinos<ScalarT>>(prior_operator_interface->M);
+    HDSA::Ptr<HDSA::Sparse_Matrix<ScalarT>> S = HDSA::makePtr<HDSA::Sparse_Matrix_Trilinos<ScalarT>>(prior_operator_interface->S);
 
     HDSA::Ptr<HDSA::MD_u_Prior_Interface<ScalarT>> u_prior_interface;
     HDSA::Ptr<HDSA::MD_u_Hyperparameter_Interface<ScalarT>> u_hyperparam_interface;

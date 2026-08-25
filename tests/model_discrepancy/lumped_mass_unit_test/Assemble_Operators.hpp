@@ -7,6 +7,8 @@
 #ifndef HDSA_ASSEMBLE_OPERATORS_HPP
 #define HDSA_ASSEMBLE_OPERATORS_HPP
 
+#include "HDSA_Sparse_Matrix_Trilinos.hpp"
+
 template <class RealT>
 class Assemble_Operators
 {
@@ -80,8 +82,8 @@ public:
     M->fillComplete();
     S->fillComplete();
 
-    M_sm_ = HDSA::makePtr<HDSA::Sparse_Matrix<RealT>>(M);
-    S_sm_ = HDSA::makePtr<HDSA::Sparse_Matrix<RealT>>(S);
+    M_sm_ = HDSA::makePtr<HDSA::Sparse_Matrix_Trilinos<RealT>>(M);
+    S_sm_ = HDSA::makePtr<HDSA::Sparse_Matrix_Trilinos<RealT>>(S);
   }
 
   virtual ~Assemble_Operators()

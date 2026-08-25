@@ -8,6 +8,7 @@
 #define HDSA_MD_OPT_PROB_INTERFACE_SYNTHETIC_TEST_HPP
 
 #include "HDSA_MD_Opt_Prob_Interface.hpp"
+#include "HDSA_Sparse_Matrix_Trilinos.hpp"
 
 template <class RealT>
 class MD_Opt_Prob_Interface_synthetic_test : public HDSA::MD_Opt_Prob_Interface<RealT>
@@ -77,8 +78,8 @@ public:
     M->fillComplete();
     S->fillComplete();
 
-    M_sm_ = HDSA::makePtr<HDSA::Sparse_Matrix<RealT>>(M);
-    S_sm_ = HDSA::makePtr<HDSA::Sparse_Matrix<RealT>>(S);
+    M_sm_ = HDSA::makePtr<HDSA::Sparse_Matrix_Trilinos<RealT>>(M);
+    S_sm_ = HDSA::makePtr<HDSA::Sparse_Matrix_Trilinos<RealT>>(S);
   }
 
   virtual ~MD_Opt_Prob_Interface_synthetic_test()

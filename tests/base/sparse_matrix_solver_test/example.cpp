@@ -11,6 +11,7 @@
 #include "HDSA_Comm.hpp"
 #include "HDSA_Ptr.hpp"
 #include "HDSA_Sparse_Matrix.hpp"
+#include "HDSA_Sparse_Matrix_Trilinos.hpp"
 #include "HDSA_Incomplete_Chol_Factor.hpp"
 #include "HDSA_Sparse_Matrix_Solver.hpp"
 
@@ -51,10 +52,10 @@ int main(int argc, char *argv[])
   }
   M->fillComplete();
 
-  HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> M_sm = HDSA::makePtr<HDSA::Sparse_Matrix<RealT>>(M);
+  HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> M_sm = HDSA::makePtr<HDSA::Sparse_Matrix_Trilinos<RealT>>(M);
   M_sm->Set_Symmetric();
-  HDSA::Ptr<HDSA::Incomplete_Chol_Factor<RealT>> L = HDSA::makePtr<HDSA::Incomplete_Chol_Factor<RealT>>(M_sm);
-  HDSA::Ptr<HDSA::Sparse_Matrix_Solver<RealT>> mat_solver = HDSA::makePtr<HDSA::Sparse_Matrix_Solver<RealT>>(M_sm, false, true);
+  HDSA::Ptr<HDSA::Incomplete_Chol_Factor<RealT>> L = M_sm->Get_Incomplete_Chol_Factor();
+  HDSA::Ptr<HDSA::Sparse_Matrix_Solver<RealT>> mat_solver = M_sm->Get_Sparse_Matrix_Solver(false, true);
   mat_solver->Set_Incomplete_Factor(L);
 
   HDSA::Ptr<Tpetra::MultiVector<RealT, Tpetra::Map<>::local_ordinal_type, Tpetra::Map<>::global_ordinal_type, Tpetra::Map<>::node_type>> tpetra_vec = Tpetra::createMultiVector<RealT, Tpetra::Map<>::local_ordinal_type, Tpetra::Map<>::global_ordinal_type, Tpetra::Map<>::node_type>(map, 1);
