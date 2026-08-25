@@ -125,8 +125,8 @@ namespace HDSA
           int num_iter = belos_solver->getNumIters();
           std::ostringstream oss;
           oss << std::scientific << ach_tol;
-          std::string tol = oss.str();
-          output_message = "Iterative_Linear_Solve achieved the tolerance " + tol + " with " + std::to_string(num_iter) + " iterations";
+          std::string tol_str = oss.str();
+          output_message = "Iterative_Linear_Solve achieved the tolerance " + tol_str + " with " + std::to_string(num_iter) + " iterations";
         }
       }
       else
