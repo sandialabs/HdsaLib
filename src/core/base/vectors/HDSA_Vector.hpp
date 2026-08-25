@@ -53,12 +53,14 @@ namespace HDSA
 
     virtual void Write_to_File(const std::string &name) const
     {
+      (void) name;
       HDSA_TEST_FOR_EXCEPTION(true, std::logic_error,
                               "Error in HDSA::Vector: Write_to_File has not been implemented for this vector type" << std::endl);
     }
 
     virtual RealT Get_Entry(int k) const
     {
+      (void) k;
       HDSA_TEST_FOR_EXCEPTION(true, std::logic_error,
                               "Error in HDSA::Vector: Get_Entry has not been implemented for this vector type" << std::endl);
       RealT val = 0.0;
@@ -67,6 +69,8 @@ namespace HDSA
 
     virtual void Set_Entry(int k, RealT val)
     {
+      (void) k;
+      (void) val;
       HDSA_TEST_FOR_EXCEPTION(true, std::logic_error,
                               "Error in HDSA::Vector: Set_Entry has not been implemented for this vector type" << std::endl);
     }

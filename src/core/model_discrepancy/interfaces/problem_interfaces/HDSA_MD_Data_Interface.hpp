@@ -144,12 +144,14 @@ namespace HDSA
 
     virtual HDSA::Ptr<const HDSA::Vector<RealT>> Extract_State_Component(const HDSA::Vector<RealT> &u, int component_id) const
     {
+      (void) component_id;
       HDSA::Ptr<const HDSA::Vector<RealT>> u_component = HDSA::makePtrFromRef(u);
       return u_component;
     }
 
     virtual void Set_State_Component(HDSA::Vector<RealT> &u, const HDSA::Vector<RealT> &u_component, int component_id) const
     {
+      (void) component_id;
       u.Set(u_component);
     }
 
