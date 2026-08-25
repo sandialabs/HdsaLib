@@ -43,6 +43,8 @@ public:
                             "Error in HDSA::Sparse_Matrix_Solver: A sparse direct solve was requested, but the "
                             "Sparse_Direct_Solve method has not been implemented"
                                 << std::endl);
+    (void) x;
+    (void) b;
   }
 
   void Set_A_op(const HDSA::Ptr<HDSA::Linear_Operator<RealT>> &A_op)
