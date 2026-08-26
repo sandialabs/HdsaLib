@@ -51,7 +51,7 @@ int main(int argc, char *argv[])
   HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> M = opt_prob_interface_st->Get_Mass_Matrix();
   HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> S = opt_prob_interface_st->Get_Stiffness_Matrix();
 
-  HDSA::Ptr<HDSA::MD_Bilaplacian_u_Prior_Interface<RealT>> u_prior_interface = HDSA::makePtr<HDSA::MD_Bilaplacian_u_Prior_Interface<RealT>>(S, M, data_interface, u_hyperparam_interface, comm, random_number_generator);
+  HDSA::Ptr<HDSA::MD_Bilaplacian_u_Prior_Interface<RealT>> u_prior_interface = HDSA::makePtr<HDSA::MD_Bilaplacian_u_Prior_Interface<RealT>>(S, M, data_interface, u_hyperparam_interface);
 
   RealT scalar = 0.5;
   RealT scalar_shift = scalar / 0.048969233204560;

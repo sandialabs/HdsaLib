@@ -405,11 +405,11 @@ public:
           HDSA::Ptr<HDSA::MD_OUU_Hyperparameter_Data_Interface<ScalarT>> data_interface_hyperparam = HDSA::makePtr<HDSA::MD_OUU_Hyperparameter_Data_Interface<ScalarT>>(ouu_data_interface);
           if (prior_computation == "Lumped_Mass")
           {
-            spatial_u_prior_interface_k = HDSA::makePtr<HDSA::MD_Lumped_Mass_u_Prior_Interface<ScalarT>>(S, M, data_interface_hyperparam, u_hyperparam_interface_std[k], hdsa_comm, random_number_generator, use_direct_solvers, hdsa_verbosity, use_incomplete_prec, *outStream);
+            spatial_u_prior_interface_k = HDSA::makePtr<HDSA::MD_Lumped_Mass_u_Prior_Interface<ScalarT>>(S, M, data_interface_hyperparam, u_hyperparam_interface_std[k], use_direct_solvers, hdsa_verbosity, use_incomplete_prec, *outStream);
           }
           else if (prior_computation == "Bilaplacian")
           {
-            spatial_u_prior_interface_k = HDSA::makePtr<HDSA::MD_Bilaplacian_u_Prior_Interface<ScalarT>>(S, M, data_interface_hyperparam, u_hyperparam_interface_std[k], hdsa_comm, random_number_generator, use_direct_solvers, hdsa_verbosity, use_incomplete_prec, *outStream);
+            spatial_u_prior_interface_k = HDSA::makePtr<HDSA::MD_Bilaplacian_u_Prior_Interface<ScalarT>>(S, M, data_interface_hyperparam, u_hyperparam_interface_std[k], use_direct_solvers, hdsa_verbosity, use_incomplete_prec, *outStream);
           }
           else
           {
@@ -423,11 +423,11 @@ public:
           int n_y = data_interface->Get_u_opt()->Dimension() / n_t;
           if (prior_computation == "Lumped_Mass")
           {
-            spatial_u_prior_interface_k = HDSA::makePtr<HDSA::MD_Lumped_Mass_u_Prior_Interface<ScalarT>>(S, M, data_interface, u_hyperparam_interface_std[k], hdsa_comm, random_number_generator, use_direct_solvers, hdsa_verbosity, use_incomplete_prec, *outStream);
+            spatial_u_prior_interface_k = HDSA::makePtr<HDSA::MD_Lumped_Mass_u_Prior_Interface<ScalarT>>(S, M, data_interface, u_hyperparam_interface_std[k], use_direct_solvers, hdsa_verbosity, use_incomplete_prec, *outStream);
           }
           if (prior_computation == "Bilaplacian")
           {
-            spatial_u_prior_interface_k = HDSA::makePtr<HDSA::MD_Bilaplacian_u_Prior_Interface<ScalarT>>(S, M, data_interface, u_hyperparam_interface_std[k], hdsa_comm, random_number_generator, use_direct_solvers, hdsa_verbosity, use_incomplete_prec, *outStream);
+            spatial_u_prior_interface_k = HDSA::makePtr<HDSA::MD_Bilaplacian_u_Prior_Interface<ScalarT>>(S, M, data_interface, u_hyperparam_interface_std[k], use_direct_solvers, hdsa_verbosity, use_incomplete_prec, *outStream);
           }
           else
           {
@@ -446,11 +446,11 @@ public:
           HDSA::Ptr<HDSA::MD_OUU_Hyperparameter_Data_Interface<ScalarT>> data_interface_hyperparam = HDSA::makePtr<HDSA::MD_OUU_Hyperparameter_Data_Interface<ScalarT>>(ouu_data_interface);
           if (prior_computation == "Lumped_Mass")
           {
-            u_prior_interface_std[k] = HDSA::makePtr<HDSA::MD_Lumped_Mass_u_Prior_Interface<ScalarT>>(S, M, data_interface_hyperparam, u_hyperparam_interface_std[k], hdsa_comm, random_number_generator, use_direct_solvers, hdsa_verbosity, use_incomplete_prec, *outStream);
+            u_prior_interface_std[k] = HDSA::makePtr<HDSA::MD_Lumped_Mass_u_Prior_Interface<ScalarT>>(S, M, data_interface_hyperparam, u_hyperparam_interface_std[k], use_direct_solvers, hdsa_verbosity, use_incomplete_prec, *outStream);
           }
           else if (prior_computation == "Bilaplacian")
           {
-            u_prior_interface_std[k] = HDSA::makePtr<HDSA::MD_Bilaplacian_u_Prior_Interface<ScalarT>>(S, M, data_interface_hyperparam, u_hyperparam_interface_std[k], hdsa_comm, random_number_generator, use_direct_solvers, hdsa_verbosity, use_incomplete_prec, *outStream);
+            u_prior_interface_std[k] = HDSA::makePtr<HDSA::MD_Bilaplacian_u_Prior_Interface<ScalarT>>(S, M, data_interface_hyperparam, u_hyperparam_interface_std[k], use_direct_solvers, hdsa_verbosity, use_incomplete_prec, *outStream);
           }
           else
           {
@@ -461,11 +461,11 @@ public:
         {
           if (prior_computation == "Lumped_Mass")
           {
-            u_prior_interface_std[k] = HDSA::makePtr<HDSA::MD_Lumped_Mass_u_Prior_Interface<ScalarT>>(S, M, data_interface, u_hyperparam_interface_std[k], hdsa_comm, random_number_generator, use_direct_solvers, hdsa_verbosity, use_incomplete_prec, *outStream);
+            u_prior_interface_std[k] = HDSA::makePtr<HDSA::MD_Lumped_Mass_u_Prior_Interface<ScalarT>>(S, M, data_interface, u_hyperparam_interface_std[k], use_direct_solvers, hdsa_verbosity, use_incomplete_prec, *outStream);
           }
           else if (prior_computation == "Bilaplacian")
           {
-            u_prior_interface_std[k] = HDSA::makePtr<HDSA::MD_Bilaplacian_u_Prior_Interface<ScalarT>>(S, M, data_interface, u_hyperparam_interface_std[k], hdsa_comm, random_number_generator, use_direct_solvers, hdsa_verbosity, use_incomplete_prec, *outStream);
+            u_prior_interface_std[k] = HDSA::makePtr<HDSA::MD_Bilaplacian_u_Prior_Interface<ScalarT>>(S, M, data_interface, u_hyperparam_interface_std[k], use_direct_solvers, hdsa_verbosity, use_incomplete_prec, *outStream);
           }
           else
           {

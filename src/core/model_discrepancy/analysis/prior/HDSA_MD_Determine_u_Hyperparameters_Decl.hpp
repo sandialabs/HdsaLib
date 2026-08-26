@@ -9,6 +9,7 @@
 
 #include "HDSA_MD_Data_Interface.hpp"
 #include "HDSA_MD_u_Hyperparameter_Interface.hpp"
+#include "HDSA_MD_u_Prior_Interface.hpp"
 
 namespace HDSA
 {
