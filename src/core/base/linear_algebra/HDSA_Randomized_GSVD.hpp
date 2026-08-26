@@ -19,9 +19,9 @@ namespace HDSA
   {
 
   public:
-    Randomized_GSVD()
-    {
-    }
+    Randomized_GSVD() {}
+
+    virtual ~Randomized_GSVD() {}
 
     virtual void Apply_Operator(HDSA::Vector<RealT> &vec_out, const HDSA::Vector<RealT> &vec_in) const = 0;
 
