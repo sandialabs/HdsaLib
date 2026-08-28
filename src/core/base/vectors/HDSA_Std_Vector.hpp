@@ -47,6 +47,9 @@ namespace HDSA
       }
     }
 
+    Std_Vector(HDSA::Ptr<std::vector<RealT>> &vec_in) : dim_(vec_in->size()), random_number_generator_(HDSA::makePtr<HDSA::Random_Number_Generator<RealT>>()), vec_(vec_in)
+    {}
+
     ~Std_Vector()
     {
     }

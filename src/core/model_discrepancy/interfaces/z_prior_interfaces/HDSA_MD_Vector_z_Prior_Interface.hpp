@@ -7,6 +7,12 @@
 #ifndef HDSA_MD_VECTOR_Z_PRIOR_INTERFACE_HPP
 #define HDSA_MD_VECTOR_Z_PRIOR_INTERFACE_HPP
 
+#include "HDSA_MD_Scaled_z_Prior_Interface.hpp"
+#include "HDSA_MD_Data_Interface.hpp"
+#include "HDSA_MD_z_Hyperparameter_Interface.hpp"
+#include "HDSA_MD_u_Prior_Interface.hpp"
+#include "HDSA_MD_Determine_z_Hyperparameters_Decl.hpp"
+
 namespace HDSA
 {
 
@@ -58,5 +64,7 @@ namespace HDSA
   };
 
 }
+
+#include "HDSA_MD_Determine_z_Hyperparameters_Def.hpp"
 
 #endif
