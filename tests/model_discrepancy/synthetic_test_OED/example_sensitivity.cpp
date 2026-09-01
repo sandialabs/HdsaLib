@@ -274,7 +274,7 @@ int main(int argc, char* argv[]) {
       HDSA::makePtr<HDSA::MultiVector<RealT>>(0, *data_interface->Get_u_opt());
 
   std::vector<HDSA::Ptr<HDSA::Vector<RealT>>> z_bars;
-  std::vector<HDSA::Ptr<HDSA::Vector<RealT>>> selected_designs;
+  //std::vector<HDSA::Ptr<HDSA::Vector<RealT>>> selected_designs;
 
   HDSA::Ptr<HDSA::Vector<RealT>> z_lofi = data_interface->Get_z_opt()->Clone();
 
@@ -334,7 +334,7 @@ int main(int argc, char* argv[]) {
       z_p->Set(*(*seq_result.Z_new)[0]);
     }
 
-    selected_designs.push_back(z_p);
+    //selected_designs.push_back(z_p);
 
     /*
       Evaluate discrepancy and append data.
@@ -357,9 +357,9 @@ int main(int argc, char* argv[]) {
       Continuation update of the optimization solution.
     */
     const int num_continuation_steps = 3;
-
+    const RealT grad_tol = 1e-5;
     HDSA::Ptr<HDSA::MD_Continuation_Update<RealT>> cont_update = HDSA::makePtr<HDSA::MD_Continuation_Update<RealT>>(
-        data_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis, random_number_generator, num_continuation_steps);
+        data_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis, random_number_generator, num_continuation_steps, grad_tol);
 
     HDSA::Ptr<HDSA::Vector<RealT>> u_k = data_interface->Get_u_opt()->Clone();
     HDSA::Ptr<HDSA::Vector<RealT>> z_k = data_interface->Get_z_opt()->Clone();

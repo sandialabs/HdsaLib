@@ -171,7 +171,7 @@ namespace HDSA
 
     void Apply_QN_Inverse_Hessian_Approximation(HDSA::Vector<RealT> &z_out, const HDSA::Vector<RealT> &z_in, const int &param_counter, const int &block_counter) const
     {
-      if (param_counter == 0 & block_counter == 0)
+      if ((param_counter == 0) && (block_counter == 0))
       {
         Apply_Initial_Inverse_Hessian_Approximation(z_out, z_in);
       }

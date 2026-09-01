@@ -63,21 +63,28 @@ public:
     }
   }
 
-  // This implementation assumes that it is evaluated at the optimal z so that the adjoint=0, a more general
-  // implementation would include a term multiplied by the adjoint variable
-  void Apply_RS_Hessian(HDSA::Vector<RealT>& z_out, const HDSA::Vector<RealT>& z_in,
-                        const HDSA::Vector<RealT>& z) const {
-    const HDSA::Std_Vector<RealT> z_std = dynamic_cast<const HDSA::Std_Vector<RealT>&>(z);
-    const HDSA::Std_Vector<RealT> z_in_std = dynamic_cast<const HDSA::Std_Vector<RealT>&>(z_in);
-    HDSA::Std_Vector<RealT> z_out_std = dynamic_cast<HDSA::Std_Vector<RealT>&>(z_out);
+  // More general Hessian apply
+  void Apply_RS_Hessian(HDSA::Vector<RealT> &z_out, const HDSA::Vector<RealT> &z_in, const HDSA::Vector<RealT> &z) const {
+    const HDSA::Std_Vector<RealT> &z_std = dynamic_cast<const HDSA::Std_Vector<RealT> &>(z);
+    const HDSA::Std_Vector<RealT> &z_in_std = dynamic_cast<const HDSA::Std_Vector<RealT> &>(z_in);
+    HDSA::Std_Vector<RealT> &z_out_std = dynamic_cast<HDSA::Std_Vector<RealT> &>(z_out);
+
+    HDSA::Ptr<HDSA::Vector<RealT>> u = z.Clone();
+    this->State_Solve(*u, z);
+    HDSA::Ptr<HDSA::Vector<RealT>> grad_u = z.Clone();
+    this->Misfit_Gradient(*grad_u, *u, z);
+    const HDSA::Std_Vector<RealT> &grad_u_std = dynamic_cast<const HDSA::Std_Vector<RealT> &>(*grad_u);
+
     HDSA::Ptr<HDSA::Dense_Matrix<RealT>> v = HDSA::makePtr<HDSA::Dense_Matrix<RealT>>(m_, 1);
-    for (int k = 0; k < m_; k++) {
-      v->Set_Entry(k, 0, 9.0 * (z_in_std(k) * std::pow(z_std(k), 2.0)));
+    for (int k = 0; k < m_; ++k) {
+      v->Set_Entry(k, 0, static_cast<RealT>(3.0) * std::pow(z_std(k), 2.0) * z_in_std(k));
     }
     HDSA::Ptr<HDSA::Dense_Matrix<RealT>> M_v = HDSA::makePtr<HDSA::Dense_Matrix<RealT>>(m_, 1);
     M_->Multiply(*M_v, *v);
-    for (int k = 0; k < m_; k++) {
-      z_out_std.Set_Entry(k, (*M_v)(k, 0) * std::pow(z_std(k), 2.0));
+    for (int k = 0; k < m_; ++k) {
+      const RealT gauss_newton_term = static_cast<RealT>(3.0) * (*M_v)(k, 0) * std::pow(z_std(k), 2.0);
+      const RealT second_order_term = static_cast<RealT>(6.0) * z_std(k) * z_in_std(k) * grad_u_std(k);
+      z_out_std.Set_Entry(k, gauss_newton_term + second_order_term);
     }
   }
 

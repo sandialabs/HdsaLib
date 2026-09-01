@@ -14,13 +14,27 @@
 namespace HDSA
 {
 
+  // Transforms 2 uniformely distributed variables into a normally distributed one
+  // X, Y ~ U(0, 1) -> Z ~ N(0,1) -- Box-Muller approach
+  template<class RealT>
+  class Uniform2Normal : public ROL::Elementwise::BinaryFunction<RealT> {
+  public:
+    Uniform2Normal() {};
+
+    RealT apply( const RealT &x, const RealT &y ) const {
+      constexpr RealT two_pi = 2.0 * M_PI;
+      constexpr RealT safe_lower_bound = std::numeric_limits<RealT>::min();
+      return std::sqrt(-2.0 * log(safe_lower_bound+x)) * cos(two_pi * y);
+    }  
+  }; // class Uniform2Normal
+
   template <class RealT>
   class ROL_Vector : public HDSA::Vector<RealT>
   {
 
   public:
     ROL::Ptr<ROL::Vector<RealT>> rol_vec;
-    static ROL::Elementwise::NormalRandom<RealT> nr;
+    static Uniform2Normal<RealT> u2n;
 
     ROL_Vector(ROL::Ptr<ROL::Vector<RealT>> &rol_vec_in) : rol_vec(rol_vec_in)
     {
@@ -75,8 +89,27 @@ namespace HDSA
 
     void Randomize_Standard_Normal() override
     {
-      rol_vec->applyUnary(nr);
+      auto rol_vec_tmp = rol_vec->clone();
+      rol_vec->randomize();
+      rol_vec_tmp->randomize();
+      rol_vec->applyBinary(u2n,*rol_vec_tmp);
     }
+
+    HDSA::Ptr<HDSA::Vector<RealT>> Get_Basis(int i) const override
+    {
+      return Teuchos::rcp(new HDSA::ROL_Vector<RealT>(rol_vec->basis(i)));
+    };
+
+    RealT Get_Entry(int i) const override
+    {
+      return rol_vec->dot(*rol_vec->basis(i));
+    };
+
+    void Set_Entry(int i, RealT val) override
+    {
+      rol_vec->setScalar(0.0);
+      rol_vec->axpy(val, *rol_vec->basis(i));
+    };
 
     void Write_to_File(const std::string &name) const override
     {
@@ -96,11 +129,10 @@ namespace HDSA
         std::cout << "Write_to_File is currently not supported for this vector type" << std::endl;
       }
     }
-
   };
 
   template <>
-  ROL::Elementwise::NormalRandom<double> ROL_Vector<double>::nr = ROL::Elementwise::NormalRandom<double>(0.0, 1.0);
+  Uniform2Normal<double> ROL_Vector<double>::u2n = Uniform2Normal<double>();
 
 }
 

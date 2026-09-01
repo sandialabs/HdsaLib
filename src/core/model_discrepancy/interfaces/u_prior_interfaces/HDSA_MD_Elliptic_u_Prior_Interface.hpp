@@ -117,7 +117,10 @@ namespace HDSA
     virtual HDSA::Ptr<HDSA::Dense_Matrix<RealT>> Get_W_u_Generalized_Eigenvalues() const {
       const RealT alpha_u = this->Get_alpha_u();
       const int num_sing_vals = sing_vals_->Number_of_Rows();
-      HDSA::Ptr<HDSA::Dense_Matrix<RealT>> lambda_js = HDSA::makePtr<HDSA::Dense_Matrix<RealT>>(num_sing_vals, 1);
+      const int sing_vec_dim = (*sing_vecs_output_)[0]->Dimension();
+      HDSA::Ptr<HDSA::Dense_Matrix<RealT>> lambda_js = HDSA::makePtr<HDSA::Dense_Matrix<RealT>>(sing_vec_dim, 1);
+      std::cout << "Elliptic u prior num eigs: " << num_sing_vals <<std::endl;
+      RealT max_lambda=0;
       for (int j = 0; j < num_sing_vals; ++j) {
         const RealT sigma_j = (*sing_vals_)(j, 0);
         HDSA_TEST_FOR_EXCEPTION(sigma_j == static_cast<RealT>(0), std::logic_error,
@@ -125,7 +128,12 @@ namespace HDSA
                                 "Encountered zero singular value."
                                     << std::endl);
         lambda_js->Set_Entry(j, 0, static_cast<RealT>(1) / (alpha_u * std::pow(sigma_j, 2.0)));
+        max_lambda = std::max(max_lambda,(*lambda_js)(j,0));
       }
+      
+      //filling remainig eigenvalues values with largest of the available eigenvalues. Smaller eigenvalues are more important for OED. 
+      for (int j = num_sing_vals; j < sing_vec_dim; ++j)
+        lambda_js->Set_Entry(j, 0, max_lambda);
       return lambda_js;
     }
 

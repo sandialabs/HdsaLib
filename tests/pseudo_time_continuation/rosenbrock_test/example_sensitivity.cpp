@@ -35,7 +35,8 @@ int main(int argc, char *argv[])
 
   HDSA::Ptr<HDSA::PC_Sensitivity_Operator_Interface<RealT>> sen_op = HDSA::makePtr<PC_Sensitivity_Operator_Interface_Rosenbrock<RealT>>(rosenbrock);
   HDSA::Ptr<HDSA::PC_Quasi_Newton_Preconditioner<RealT>> qn_prec = HDSA::makePtr<HDSA::PC_Quasi_Newton_Preconditioner<RealT>>();
-  HDSA::Ptr<HDSA::PC_Pseudo_Time_Continuation<RealT>> sen = HDSA::makePtr<HDSA::PC_Pseudo_Time_Continuation<RealT>>(z_bar, sen_op, qn_prec);
+  RealT grad_tol = 1.e-5;
+  HDSA::Ptr<HDSA::PC_Pseudo_Time_Continuation<RealT>> sen = HDSA::makePtr<HDSA::PC_Pseudo_Time_Continuation<RealT>>(z_bar, sen_op, qn_prec, grad_tol);
 
   HDSA::Ptr<HDSA::Vector<RealT>> theta_star = theta_bar->Clone();
   theta_star->Set_Scalar(1.2);

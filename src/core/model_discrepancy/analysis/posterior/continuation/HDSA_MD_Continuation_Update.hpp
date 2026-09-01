@@ -34,6 +34,7 @@ namespace HDSA
     HDSA::Ptr<HDSA::Random_Number_Generator<RealT>> random_number_generator_;
     int num_continuation_steps_;
     int r_;
+    RealT grad_tol_;
 
     void Posterior_Update_Core(HDSA::Vector<RealT> &u_k, HDSA::Vector<RealT> &z_k, HDSA::Vector<RealT> &beta_k, int sample_idx) const
     {
@@ -48,7 +49,7 @@ namespace HDSA
 
       HDSA::Ptr<HDSA::PC_Sensitivity_Operator_Interface<RealT>> base_sen_op = Teuchos::rcp_dynamic_cast<HDSA::PC_Sensitivity_Operator_Interface<RealT>>(sen_op);
       HDSA::Ptr<HDSA::PC_Pseudo_Time_Continuation<RealT>> pt_cont =
-          HDSA::makePtr<HDSA::PC_Pseudo_Time_Continuation<RealT>>(beta_nom, base_sen_op, qn_prec);
+          HDSA::makePtr<HDSA::PC_Pseudo_Time_Continuation<RealT>>(beta_nom, base_sen_op, qn_prec, grad_tol_);
 
       HDSA::MD_Discrepancy_Parameter_Trajectory<RealT> theta_traj(num_continuation_steps_, sample_idx);
 
@@ -68,8 +69,8 @@ namespace HDSA
     MD_Continuation_Update(const HDSA::Ptr<HDSA::MD_Data_Interface<RealT>> &data_interface, const HDSA::Ptr<HDSA::MD_z_Prior_Interface<RealT>> &z_prior_interface,
                            const HDSA::Ptr<HDSA::MD_Opt_Prob_Interface<RealT>> &opt_prob_interface, const HDSA::Ptr<HDSA::MD_Posterior_Sampling<RealT>> &post_sampling,
                            const HDSA::Ptr<HDSA::MD_Hessian_Analysis<RealT>> &hessian_analysis, const HDSA::Ptr<HDSA::Random_Number_Generator<RealT>> &random_number_generator,
-                           int num_continuation_steps) : data_interface_(data_interface), z_prior_interface_(z_prior_interface), opt_prob_interface_(opt_prob_interface),
-                                                         post_sampling_(post_sampling), hessian_analysis_(hessian_analysis), random_number_generator_(random_number_generator), num_continuation_steps_(num_continuation_steps)
+                           const int num_continuation_steps, const RealT grad_tol) : data_interface_(data_interface), z_prior_interface_(z_prior_interface), opt_prob_interface_(opt_prob_interface),
+                                                         post_sampling_(post_sampling), hessian_analysis_(hessian_analysis), random_number_generator_(random_number_generator), num_continuation_steps_(num_continuation_steps), grad_tol_(grad_tol)
     {
       u_opt_ = data_interface_->Get_u_opt()->Clone();
       u_opt_->Set(*data_interface_->Get_u_opt());
