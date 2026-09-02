@@ -7,6 +7,8 @@
 #ifndef HDSA_MD_Z_HYPERPARAMETER_INTERFACE_HPP
 #define HDSA_MD_Z_HYPERPARAMETER_INTERFACE_HPP
 
+#include "HDSA_Random_Number_Generator.hpp"
+
 namespace HDSA
 {
 

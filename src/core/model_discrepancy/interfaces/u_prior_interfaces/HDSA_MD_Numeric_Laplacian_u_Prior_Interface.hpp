@@ -130,6 +130,16 @@ template <class RealT> class MD_Numeric_Laplacian_u_Prior_Interface : public HDS
         std::string E_u_solver_message = "E_u_Inverse";
         E_u_solver_ = E_u_->Get_Sparse_Matrix_Solver(use_direct_solvers_, verbosity_, out_stream_, E_u_solver_message);
     }
+
+    const HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> Get_S(void) const 
+    {
+        return S_;
+    }
+
+    const HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> Get_M(void) const 
+    {
+        return M_;
+    }
 };
 } // namespace HDSA
 
