@@ -66,7 +66,7 @@ template <class RealT> class MD_Lumped_Mass_u_Prior_Interface : public HDSA::MD_
     void Apply_W_u_Acute_Plus_scalar_M_u_Inverse(HDSA::Vector<RealT> &u_out, const HDSA::Vector<RealT> &u_in, const RealT &scalar) const override
     {
         int i = -1;
-        for (int k = 0; k < scalars_.size(); k++)
+        for (long unsigned int k = 0; k < scalars_.size(); k++)
         {
             if (std::abs(scalars_[k] - scalar) < 1.e-12)
             {
@@ -99,7 +99,7 @@ template <class RealT> class MD_Lumped_Mass_u_Prior_Interface : public HDSA::MD_
     {
         int num_samples = samples.Number_of_Vectors();
         HDSA::Ptr<HDSA::Vector<RealT>> u_tmp = samples[0]->Clone();
-        for (int k = 0; k < num_samples; k++)
+        for (int s = 0; s < num_samples; s++)
         {
             u_tmp->Randomize_Standard_Normal();
             for (int k = 0; k < u_tmp->Dimension(); k++)
@@ -107,14 +107,14 @@ template <class RealT> class MD_Lumped_Mass_u_Prior_Interface : public HDSA::MD_
                 RealT val = u_tmp->Get_Entry(k) * std::sqrt(M_lumped_->Get_Entry(k));
                 u_tmp->Set_Entry(k, val);
             }
-            Apply_E_u_Inverse(*samples[k], *u_tmp);
+            Apply_E_u_Inverse(*samples[s], *u_tmp);
         }
     }
 
     void Sample_with_Covariance_W_u_Acute_Plus_scalar_M_u_Inverse(HDSA::MultiVector<RealT> &samples, const RealT &scalar) const override
     {
         int i = -1;
-        for (int k = 0; k < scalars_.size(); k++)
+        for (long unsigned int k = 0; k < scalars_.size(); k++)
         {
             if (std::abs(scalars_[k] - scalar) < 1.e-12)
             {
@@ -188,7 +188,7 @@ template <class RealT> class MD_Lumped_Mass_u_Prior_Interface : public HDSA::MD_
 
     void Disable_Sampling_Preconditioner(void)
     {
-        for (int k = 0; k < W_u_acute_plus_scalar_M_u_sqrt_.size(); k++)
+        for (long unsigned int k = 0; k < W_u_acute_plus_scalar_M_u_sqrt_.size(); k++)
         {
             W_u_acute_plus_scalar_M_u_sqrt_[k]->Disable_Incomplete_Factorization();
         }

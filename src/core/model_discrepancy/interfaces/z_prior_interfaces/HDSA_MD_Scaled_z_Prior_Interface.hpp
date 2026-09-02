@@ -43,12 +43,15 @@ namespace HDSA
     // Compute samples from a mean zero Gaussian with covariance \acute{W}_z^{-1}
     virtual void Sample_with_Covariance_W_z_Acute_Inverse(HDSA::MultiVector<RealT> &samples) const
     {
+      (void) samples;
       HDSA_TEST_FOR_EXCEPTION(true, std::logic_error,
                               "Error in HDSA::MD_Scaled_z_Prior_Interface::Sample_with_Covariance_W_z_Acute_Inverse: Method must be implemented to use sampling algorithms" << std::endl);
     }
 
     virtual void Apply_W_z_Acute(HDSA::Vector<RealT> &z_out, const HDSA::Vector<RealT> &z_in) const
     {
+      (void) z_in;
+      (void) z_out;
       HDSA_TEST_FOR_EXCEPTION(true, std::logic_error,
                               "Error in HDSA::MD_Scaled_z_Prior_Interface::MD_z_Prior_Interface::Apply_W_z_Acute: Method must be implemented to use the Hessian GEVP" << std::endl);
     }

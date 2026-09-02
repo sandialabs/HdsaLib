@@ -55,9 +55,9 @@ namespace HDSA
       const HDSA::Transient_Vector<RealT> *u_in_trans = dynamic_cast<const HDSA::Transient_Vector<RealT> *>(&u_in);
       HDSA::Transient_Vector<RealT> *u_out_trans = dynamic_cast<HDSA::Transient_Vector<RealT> *>(&u_out);
 
-      if (HDSA::Ptr<const MD_Elliptic_u_Prior_Interface<RealT>> spatial_prior_cov_cast = HDSA::dynamicPtrCast<const MD_Elliptic_u_Prior_Interface<RealT>>(spatial_prior_cov_))
+      if (HDSA::Ptr<const MD_Elliptic_u_Prior_Interface<RealT>> spatial_prior_cov_elliptic = HDSA::dynamicPtrCast<const MD_Elliptic_u_Prior_Interface<RealT>>(spatial_prior_cov_))
       {
-        HDSA::Ptr<HDSA::MultiVector<RealT>> spatial_sing_vecs = spatial_prior_cov_cast->Get_Sing_Vecs_Output();
+        HDSA::Ptr<HDSA::MultiVector<RealT>> spatial_sing_vecs = spatial_prior_cov_elliptic->Get_Sing_Vecs_Output();
         int spatial_rank = spatial_sing_vecs->Number_of_Vectors();
         HDSA::Ptr<HDSA::Dense_Matrix<RealT>> tmp1 = HDSA::makePtr<HDSA::Dense_Matrix<RealT>>(spatial_rank, n_t_);
         for (int i = 0; i < spatial_rank; i++)
@@ -71,7 +71,7 @@ namespace HDSA
         HDSA::Ptr<HDSA::Dense_Matrix<RealT>> tmp2 = HDSA::makePtr<HDSA::Dense_Matrix<RealT>>(spatial_rank, n_t_);
         tmp1->Multiply(*tmp2, *transient_prior_cov_->Get_Evecs());
 
-        HDSA::Ptr<HDSA::Dense_Matrix<RealT>> spatial_sing_vals = spatial_prior_cov_cast->Get_Sing_Vals();
+        HDSA::Ptr<HDSA::Dense_Matrix<RealT>> spatial_sing_vals = spatial_prior_cov_elliptic->Get_Sing_Vals();
         HDSA::Ptr<HDSA::Dense_Matrix<RealT>> time_sing_vals = transient_prior_cov_->Get_Evals();
         for (int i = 0; i < spatial_rank; i++)
         {
@@ -95,7 +95,7 @@ namespace HDSA
           }
         }
       }
-      else if (HDSA::Ptr<const MD_Lumped_Mass_u_Prior_Interface<RealT>> spatial_prior_cov_cast = HDSA::dynamicPtrCast<const MD_Lumped_Mass_u_Prior_Interface<RealT>>(spatial_prior_cov_))
+      else if (HDSA::Ptr<const MD_Lumped_Mass_u_Prior_Interface<RealT>> spatial_prior_cov_lump = HDSA::dynamicPtrCast<const MD_Lumped_Mass_u_Prior_Interface<RealT>>(spatial_prior_cov_))
       {
         HDSA::Ptr<HDSA::Vector<RealT>> u_tmp1 = u_out.Clone();
         HDSA::Ptr<HDSA::Transient_Vector<RealT>> u_tmp1_trans = HDSA::dynamicPtrCast<HDSA::Transient_Vector<RealT>>(u_tmp1);
@@ -110,7 +110,7 @@ namespace HDSA
             RealT val = std::sqrt((*time_evals)(i, 0)) * (*time_evecs)(j, i);
             (*u_tmp1_trans)[i]->Scaled_Plus(val, *u_in_trans->Get_Vector_Const(j));
           }
-          spatial_prior_cov_cast->Apply_W_u_Acute_Plus_scalar_M_u_Inverse(*(*u_tmp2_trans)[i], *(*u_tmp1_trans)[i], (*time_evals)(i, 0) * scalar);
+          spatial_prior_cov_lump->Apply_W_u_Acute_Plus_scalar_M_u_Inverse(*(*u_tmp2_trans)[i], *(*u_tmp1_trans)[i], (*time_evals)(i, 0) * scalar);
         }
 
         for (int i = 0; i < n_t_; i++)
@@ -151,12 +151,12 @@ namespace HDSA
       HDSA::Ptr<HDSA::Dense_Matrix<RealT>> time_evals = transient_prior_cov_->Get_Evals();
       HDSA::Ptr<HDSA::Dense_Matrix<RealT>> time_evecs = transient_prior_cov_->Get_Evecs();
 
-      if (HDSA::Ptr<const MD_Elliptic_u_Prior_Interface<RealT>> spatial_prior_cov_cast = HDSA::dynamicPtrCast<const MD_Elliptic_u_Prior_Interface<RealT>>(spatial_prior_cov_))
+      if (HDSA::Ptr<const MD_Elliptic_u_Prior_Interface<RealT>> spatial_prior_cov_elliptic = HDSA::dynamicPtrCast<const MD_Elliptic_u_Prior_Interface<RealT>>(spatial_prior_cov_))
       {
-        HDSA::Ptr<HDSA::Random_Number_Generator<RealT>> random_number_generator = spatial_prior_cov_cast->Get_Random_Number_Generator();
-        HDSA::Ptr<HDSA::MultiVector<RealT>> spatial_sing_vecs = spatial_prior_cov_cast->Get_Sing_Vecs_Output();
+        HDSA::Ptr<HDSA::Random_Number_Generator<RealT>> random_number_generator = spatial_prior_cov_elliptic->Get_Random_Number_Generator();
+        HDSA::Ptr<HDSA::MultiVector<RealT>> spatial_sing_vecs = spatial_prior_cov_elliptic->Get_Sing_Vecs_Output();
         int spatial_rank = spatial_sing_vecs->Number_of_Vectors();
-        HDSA::Ptr<HDSA::Dense_Matrix<RealT>> spatial_sing_vals = spatial_prior_cov_cast->Get_Sing_Vals();
+        HDSA::Ptr<HDSA::Dense_Matrix<RealT>> spatial_sing_vals = spatial_prior_cov_elliptic->Get_Sing_Vals();
         for (int k = 0; k < num_samples; k++)
         {
           HDSA::Ptr<HDSA::Vector<RealT>> sk = samples[k];
@@ -184,7 +184,7 @@ namespace HDSA
           }
         }
       }
-      else if (HDSA::Ptr<const MD_Lumped_Mass_u_Prior_Interface<RealT>> spatial_prior_cov_cast = HDSA::dynamicPtrCast<const MD_Lumped_Mass_u_Prior_Interface<RealT>>(spatial_prior_cov_))
+      else if (HDSA::Ptr<const MD_Lumped_Mass_u_Prior_Interface<RealT>> spatial_prior_cov_lump = HDSA::dynamicPtrCast<const MD_Lumped_Mass_u_Prior_Interface<RealT>>(spatial_prior_cov_))
       {
         for (int k = 0; k < num_samples; k++)
         {
@@ -192,7 +192,7 @@ namespace HDSA
           HDSA::Ptr<HDSA::Transient_Vector<RealT>> sk_trans = HDSA::dynamicPtrCast<HDSA::Transient_Vector<RealT>>(sk);
 
           HDSA::Ptr<HDSA::MultiVector<RealT>> spatial_vecs = HDSA::makePtr<HDSA::MultiVector<RealT>>(n_t_, *(*sk_trans)[0]);
-          spatial_prior_cov_cast->Sample_with_Covariance_W_u_Acute_Inverse(*spatial_vecs);
+          spatial_prior_cov_lump->Sample_with_Covariance_W_u_Acute_Inverse(*spatial_vecs);
 
           for (int i = 0; i < n_t_; i++)
           {
@@ -212,12 +212,12 @@ namespace HDSA
       HDSA::Ptr<HDSA::Dense_Matrix<RealT>> time_evals = transient_prior_cov_->Get_Evals();
       HDSA::Ptr<HDSA::Dense_Matrix<RealT>> time_evecs = transient_prior_cov_->Get_Evecs();
 
-      if (HDSA::Ptr<const MD_Elliptic_u_Prior_Interface<RealT>> spatial_prior_cov_cast = HDSA::dynamicPtrCast<const MD_Elliptic_u_Prior_Interface<RealT>>(spatial_prior_cov_))
+      if (HDSA::Ptr<const MD_Elliptic_u_Prior_Interface<RealT>> spatial_prior_cov_elliptic = HDSA::dynamicPtrCast<const MD_Elliptic_u_Prior_Interface<RealT>>(spatial_prior_cov_))
       {
-        HDSA::Ptr<HDSA::Random_Number_Generator<RealT>> random_number_generator = spatial_prior_cov_cast->Get_Random_Number_Generator();
-        HDSA::Ptr<HDSA::MultiVector<RealT>> spatial_sing_vecs = spatial_prior_cov_cast->Get_Sing_Vecs_Output();
+        HDSA::Ptr<HDSA::Random_Number_Generator<RealT>> random_number_generator = spatial_prior_cov_elliptic->Get_Random_Number_Generator();
+        HDSA::Ptr<HDSA::MultiVector<RealT>> spatial_sing_vecs = spatial_prior_cov_elliptic->Get_Sing_Vecs_Output();
         int spatial_rank = spatial_sing_vecs->Number_of_Vectors();
-        HDSA::Ptr<HDSA::Dense_Matrix<RealT>> spatial_sing_vals = spatial_prior_cov_cast->Get_Sing_Vals();
+        HDSA::Ptr<HDSA::Dense_Matrix<RealT>> spatial_sing_vals = spatial_prior_cov_elliptic->Get_Sing_Vals();
         for (int k = 0; k < num_samples; k++)
         {
           HDSA::Ptr<HDSA::Vector<RealT>> sk = samples[k];
@@ -247,7 +247,7 @@ namespace HDSA
           }
         }
       }
-      else if (HDSA::Ptr<const MD_Lumped_Mass_u_Prior_Interface<RealT>> spatial_prior_cov_cast = HDSA::dynamicPtrCast<const MD_Lumped_Mass_u_Prior_Interface<RealT>>(spatial_prior_cov_))
+      else if (HDSA::Ptr<const MD_Lumped_Mass_u_Prior_Interface<RealT>> spatial_prior_cov_lump = HDSA::dynamicPtrCast<const MD_Lumped_Mass_u_Prior_Interface<RealT>>(spatial_prior_cov_))
       {
         for (int k = 0; k < num_samples; k++)
         {
@@ -259,7 +259,7 @@ namespace HDSA
           for (int j = 0; j < n_t_; j++)
           {
             spatial_vecs[j] = HDSA::makePtr<HDSA::MultiVector<RealT>>(1, *(*sk_trans)[j]);
-            spatial_prior_cov_cast->Sample_with_Covariance_W_u_Acute_Plus_scalar_M_u_Inverse(*spatial_vecs[j], scalar * (*time_evals)(j, 0));
+            spatial_prior_cov_lump->Sample_with_Covariance_W_u_Acute_Plus_scalar_M_u_Inverse(*spatial_vecs[j], scalar * (*time_evals)(j, 0));
           }
 
           for (int i = 0; i < n_t_; i++)

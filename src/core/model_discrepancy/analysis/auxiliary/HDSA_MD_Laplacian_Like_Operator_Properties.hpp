@@ -83,7 +83,7 @@ namespace HDSA
       }
 
       RealT val = 0.0;
-      for(int k = 0; k < evals.size(); k++)
+      for(long unsigned int k = 0; k < evals.size(); k++)
       {
         val += std::pow(evals[k],2.0);
       }
