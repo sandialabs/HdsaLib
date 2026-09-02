@@ -27,7 +27,7 @@ cmake \
 -D Trilinos_ENABLE_PanzerMiniEM=OFF \
 -D Trilinos_ENABLE_PanzerAdaptersSTK=ON \
 -D Trilinos_ENABLE_PanzerAdaptersIOSS=ON \
--D Trilinos_ENABLE_Intrepid:BOOL=ON \
+-D Trilinos_ENABLE_Intrepid:BOOL=OFF \
 -D Trilinos_ENABLE_Intrepid2:BOOL=ON \
 -D Trilinos_ENABLE_Shards:BOOL=ON \
 -D Trilinos_ENABLE_Amesos2:BOOL=ON \
