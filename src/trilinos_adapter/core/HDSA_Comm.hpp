@@ -71,6 +71,13 @@ namespace HDSA
       comm_->gatherAll(sendBytes, sendBuffer, recvBytes, recvBuffer);
     }
 
+  double sumAll(const double& localVal) const
+  {
+    double globalVal{};
+    Teuchos::reduceAll<int, double>(*comm_, Teuchos::REDUCE_SUM, 1, &localVal, &globalVal);
+    return globalVal;
+  }
+
     HDSA::Ptr<HDSA::Comm<int>> createSubcommunicator(const std::vector<int> &ranks) const
     {
       Teuchos::Array<int> r;
