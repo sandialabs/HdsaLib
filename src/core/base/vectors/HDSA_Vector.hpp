@@ -30,7 +30,7 @@ namespace HDSA
     // Pure virtual functions to define when creating a vector interface
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    // Clone the vector
+    // Clone the vector and initialize to zero
     virtual HDSA::Ptr<HDSA::Vector<RealT>> Clone() const = 0;
 
     // compute the Dot product of this and x
@@ -74,6 +74,12 @@ namespace HDSA
       HDSA_TEST_FOR_EXCEPTION(true, std::logic_error,
                               "Error in HDSA::Vector: Set_Entry has not been implemented for this vector type" << std::endl);
     }
+
+    virtual HDSA::Ptr<HDSA::Vector<RealT>> Get_Basis(int i) const {
+      auto basis_i = Clone();
+      basis_i->Set_Entry(i, 0.0);
+      return basis_i;
+    };
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Implementations using the pure virtual functions above, may be overloaded if an efficiency gain is possible

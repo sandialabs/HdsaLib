@@ -37,7 +37,7 @@ namespace HDSA
 		{
 		}
 
-		void Compute_Posterior_Data(const RealT &alpha_d, int &num_samples)
+		void Compute_Posterior_Data(const RealT &alpha_d, const int &num_samples)
 		{
 			post_data->Compute_Posterior_Data(*data_interface_, *u_prior_interface_, *z_prior_interface_, alpha_d, num_samples);
 		}
