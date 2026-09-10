@@ -67,7 +67,7 @@ template <class RealT> class MD_Bilaplacian_u_Prior_Interface : public HDSA::MD_
     void Apply_W_u_Acute_Plus_scalar_M_u_Inverse(HDSA::Vector<RealT> &u_out, const HDSA::Vector<RealT> &u_in, const RealT &scalar) const override
     {
         int i = -1;
-        for (int k = 0; k < scalars_.size(); k++)
+        for (long unsigned int k = 0; k < scalars_.size(); k++)
         {
             if (std::abs(scalars_[k] - scalar) < 1.e-12)
             {
@@ -117,7 +117,7 @@ template <class RealT> class MD_Bilaplacian_u_Prior_Interface : public HDSA::MD_
     void Sample_with_Covariance_W_u_Acute_Plus_scalar_M_u_Inverse(HDSA::MultiVector<RealT> &samples, const RealT &scalar) const override
     {
         int i = -1;
-        for (int k = 0; k < scalars_.size(); k++)
+        for (long unsigned int k = 0; k < scalars_.size(); k++)
         {
             if (std::abs(scalars_[k] - scalar) < 1.e-12)
             {
@@ -281,8 +281,8 @@ template <class RealT> class MD_Bilaplacian_u_Prior_Interface : public HDSA::MD_
                 RealT elaped_time = timer_->End_Timer();
                 out_stream_ << "E_u incomplete factorization took " << elaped_time << " seconds." << std::endl;
             }
+            Assemble_W_u_Acute();
         }
-        Assemble_W_u_Acute();
     }
 
     void Apply_E_u_Inverse(HDSA::Vector<RealT> &u_out, const HDSA::Vector<RealT> &u_in) const
@@ -311,6 +311,16 @@ template <class RealT> class MD_Bilaplacian_u_Prior_Interface : public HDSA::MD_
 
         E_u_->Matrix_Matrix_Multiply(*tmp, *D_sm, true, false);
         tmp->Matrix_Matrix_Multiply(*W_u_acute_, *E_u_, false, false);
+    }
+
+    const HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> Get_S(void) const 
+    {
+        return S_;
+    }
+
+    const HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> Get_M(void) const 
+    {
+        return M_;
     }
 
     template <class ScalarType> class Shifted_Bilaplacian_Operator : public HDSA::Linear_Operator<ScalarType>
