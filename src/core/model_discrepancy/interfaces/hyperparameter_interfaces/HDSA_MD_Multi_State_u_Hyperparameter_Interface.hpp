@@ -40,7 +40,7 @@ namespace HDSA
     RealT Get_alpha_d(void) const override
     {
       RealT alpha_d = 0.0;
-      for (int k = 0; k < u_hyperparam_interface_std_.size(); k++)
+      for (long unsigned int k = 0; k < u_hyperparam_interface_std_.size(); k++)
       {
         alpha_d += u_hyperparam_interface_std_[k]->Get_alpha_d();
       }
