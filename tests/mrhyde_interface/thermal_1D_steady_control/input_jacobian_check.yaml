@@ -1,0 +1,49 @@
+%YAML 0.1
+---
+ANONYMOUS:
+  debug level: 0
+  verbosity: 0
+  Mesh:
+    dimension: 1
+    element type: interval
+    xmin: 0.0
+    xmax: 1.0
+    NX: 199
+  Physics: 
+    modules: thermal
+    include advection: false
+    Neumann conditions:
+      T:
+        all boundaries: '-2.0*T'
+  Discretization:
+    order:
+      T: 1
+    quadrature: 2
+  Parameters input file: input_params.yaml
+  Analysis input file: input_HDSA_jacobian_check.yaml
+  Solver:
+    workset size: 5
+    solver: steady-state
+    nonlineam TOL: 1.0e-9
+    linear TOL: 1.0e-13
+    max nonlinear iters: 4
+  Postprocess: 
+    response type: pointwise
+    compute objective: true
+    write solution: true 
+    Objective functions:
+      obj0:
+        type: integrated control
+        function: '0.5*(T-targ)^2'
+        weight: 1.0
+        Regularization functions:
+          reg0:
+            type: integrated
+            location: volume
+            function: thermal_source^2
+            weight: 5.0
+  Functions: 
+    thermal source: 100.0*thermal_source
+    targ: '50.0-30.0*(x-0.5)^2'
+    advection x: '0.5'
+...

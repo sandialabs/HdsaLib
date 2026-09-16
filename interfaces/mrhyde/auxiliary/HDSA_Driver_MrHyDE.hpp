@@ -40,6 +40,10 @@
 #include "HDSA_MD_OUU_u_Prior_Interface.hpp"
 #include "HDSA_BF_Update.hpp"
 #include "HDSA_BF_Sol_Op_Interface_MrHyDE.hpp"
+#include <algorithm>
+#include <cmath>
+#include <iostream>
+#include <stdexcept>
 
 template <class RealT,
           class LO = Tpetra::Map<>::local_ordinal_type,
@@ -54,6 +58,72 @@ private:
   Teuchos::RCP<MrHyDE::SolverManager<SolverNode>> solver_;
   Teuchos::RCP<MrHyDE::PostprocessManager<SolverNode>> postproc_;
   Teuchos::RCP<MrHyDE::ParameterManager<SolverNode>> params_;
+
+  bool Solution_Operator_z_Jacobian_Finite_Difference_Check(
+      const HDSA::Ptr<HDSA::MD_Data_Interface<RealT>> &data_interface,
+      const HDSA::Ptr<HDSA::MD_Opt_Prob_Interface<RealT>> &opt_prob_interface,
+      const RealT h,
+      const RealT tolerance,
+      std::ostream &outStream) const
+  {
+    TEUCHOS_TEST_FOR_EXCEPTION(h <= static_cast<RealT>(0), std::logic_error,
+                                "Error: solution_operator_z_jacobian_check_step must be positive.");
+    TEUCHOS_TEST_FOR_EXCEPTION(tolerance <= static_cast<RealT>(0), std::logic_error,
+                                "Error: solution_operator_z_jacobian_check_tolerance must be positive.");
+
+    HDSA::Ptr<const HDSA::Vector<RealT>> z = data_interface->Get_z_opt();
+    HDSA::Ptr<const HDSA::Vector<RealT>> u_shape = data_interface->Get_u_opt();
+
+    HDSA::Ptr<HDSA::Vector<RealT>> u_base = u_shape->Clone();
+    opt_prob_interface->State_Solve(*u_base, *z);
+
+    HDSA::Ptr<HDSA::Vector<RealT>> z_direction = z->Clone();
+    z_direction->Set_Scalar(1.0);
+
+    HDSA::Ptr<HDSA::Vector<RealT>> u_jacobian = u_shape->Clone();
+    opt_prob_interface->Apply_Solution_Operator_z_Jacobian(*u_jacobian, *z_direction, *z);
+
+    HDSA::Ptr<HDSA::Vector<RealT>> z_plus = z->Clone();
+    HDSA::Ptr<HDSA::Vector<RealT>> z_minus = z->Clone();
+    z_plus->Set(*z);
+    z_minus->Set(*z);
+    z_plus->Scaled_Plus(h, *z_direction);
+    z_minus->Scaled_Plus(-h, *z_direction);
+
+    HDSA::Ptr<HDSA::Vector<RealT>> u_plus = u_shape->Clone();
+    HDSA::Ptr<HDSA::Vector<RealT>> u_minus = u_shape->Clone();
+    opt_prob_interface->State_Solve(*u_plus, *z_plus);
+    opt_prob_interface->State_Solve(*u_minus, *z_minus);
+
+    HDSA::Ptr<HDSA::Vector<RealT>> u_fd = u_shape->Clone();
+    u_fd->Set(*u_plus);
+    u_fd->Scaled_Plus(-1.0, *u_minus);
+    u_fd->Scale(1.0 / (2.0 * h));
+
+    HDSA::Ptr<HDSA::Vector<RealT>> error = u_shape->Clone();
+    error->Set(*u_jacobian);
+    error->Scaled_Plus(-1.0, *u_fd);
+
+    const RealT fd_norm = u_fd->Norm();
+    const RealT error_norm = error->Norm();
+    const RealT relative_error = error_norm / std::max(static_cast<RealT>(1.0), fd_norm);
+
+    // Restore the nominal state so the check is side-effect free for callers that
+    // add more work after the check.
+    HDSA::Ptr<HDSA::Vector<RealT>> u_restore = u_shape->Clone();
+    opt_prob_interface->State_Solve(*u_restore, *z);
+
+    if (relative_error <= tolerance)
+    {
+      outStream << "Apply_Solution_Operator_z_Jacobian finite-difference check passed" << std::endl;
+      return true;
+    }
+
+    outStream << "Apply_Solution_Operator_z_Jacobian finite-difference check failed" << std::endl;
+    outStream << "  relative error = " << relative_error << std::endl;
+    outStream << "  tolerance      = " << tolerance << std::endl;
+    return false;
+  }
 
 public:
   Driver_MrHyDE(Teuchos::RCP<MpiComm> &comm, Teuchos::RCP<Teuchos::ParameterList> &settings, Teuchos::RCP<MrHyDE::SolverManager<SolverNode>> &solver,
@@ -204,6 +274,9 @@ public:
     bool execute_prior_discrepancy_sampling = HDSAsettings.sublist("Configuration").get<bool>("execute_prior_discrepancy_sampling", false);
     bool execute_posterior_discrepancy_sampling = HDSAsettings.sublist("Configuration").get<bool>("execute_posterior_discrepancy_sampling", false);
     bool execute_optimal_solution_update = HDSAsettings.sublist("Configuration").get<bool>("execute_optimal_solution_update", false);
+    bool check_solution_operator_z_jacobian = HDSAsettings.sublist("Configuration").get<bool>("check_solution_operator_z_jacobian", false);
+    ScalarT solution_operator_z_jacobian_check_step = HDSAsettings.sublist("Configuration").get<ScalarT>("solution_operator_z_jacobian_check_step", 1.0e-6);
+    ScalarT solution_operator_z_jacobian_check_tolerance = HDSAsettings.sublist("Configuration").get<ScalarT>("solution_operator_z_jacobian_check_tolerance", 1.0e-4);
 
     std::string prior_computation = HDSAsettings.sublist("Prior Computation").get<std::string>("State Prior", "Numeric_Laplacian");
     bool use_direct_solvers = HDSAsettings.sublist("Prior Computation").get<bool>("use_direct_solvers", false);
@@ -317,7 +390,7 @@ public:
       data_interface = HDSA::makePtr<MD_Data_Interface_MrHyDE<ScalarT>>(comm_, solver_, params_, random_number_generator, data_load_list);
     }
 
-    if (hdsa_verbosity > 0)
+    if ((hdsa_verbosity > 0) && !check_solution_operator_z_jacobian)
     {
       HDSA::Ptr<const HDSA::Vector<ScalarT>> u_opt = data_interface->Get_u_opt();
       HDSA::Ptr<const HDSA::Vector<ScalarT>> z_opt = data_interface->Get_z_opt();
@@ -355,6 +428,23 @@ public:
     else
     {
       opt_prob_interface = HDSA::makePtr<MD_Opt_Prob_Interface_MrHyDE<ScalarT>>(solver_, postproc_, params_, data_interface);
+    }
+
+    if (check_solution_operator_z_jacobian)
+    {
+      TEUCHOS_TEST_FOR_EXCEPTION(is_stoch, std::logic_error,
+                                  "Error: Apply_Solution_Operator_z_Jacobian finite-difference check is not implemented for stochastic HDSA runs.");
+
+      bool check_passed = Solution_Operator_z_Jacobian_Finite_Difference_Check(
+          data_interface,
+          opt_prob_interface,
+          solution_operator_z_jacobian_check_step,
+          solution_operator_z_jacobian_check_tolerance,
+          *outStream);
+
+      TEUCHOS_TEST_FOR_EXCEPTION(!check_passed, std::runtime_error,
+                                  "Error: Apply_Solution_Operator_z_Jacobian finite-difference check failed.");
+      return;
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////
