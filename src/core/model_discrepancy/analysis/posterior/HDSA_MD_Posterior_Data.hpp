@@ -45,19 +45,23 @@ namespace HDSA
 		HDSA::Ptr<HDSA::MultiVector<RealT>> u_breve;
 		HDSA::Ptr<HDSA::MultiVector<RealT>> z_breve;
 		HDSA::Ptr<HDSA::MultiVector<RealT>> M_z_z_breve;
+		bool sample_breve_vectors;
 
 		MD_Posterior_Data(void)
 		{
+			sample_breve_vectors = true;
+			num_samples = 0;
 		}
 
 		~MD_Posterior_Data(void)
 		{
 		}
 
-		void Compute_Posterior_Data(HDSA::MD_Data_Interface<RealT> &data_interface, HDSA::MD_u_Prior_Interface<RealT> &u_prior_interface, const HDSA::MD_z_Prior_Interface<RealT> &z_prior_interface, const RealT alpha_d_in, int num_samples_in)
+		void Compute_Posterior_Data(HDSA::MD_Data_Interface<RealT> &data_interface, HDSA::MD_u_Prior_Interface<RealT> &u_prior_interface, const HDSA::MD_z_Prior_Interface<RealT> &z_prior_interface, const RealT alpha_d_in, int num_samples_in, bool sample_breve_vectors_in = true)
 		{
 			alpha_d = alpha_d_in;
 			num_samples = num_samples_in;
+			sample_breve_vectors = sample_breve_vectors_in;
 			N = data_interface.Get_Z()->Number_of_Vectors();
 
 			M_z_Z = HDSA::makePtr<HDSA::MultiVector<RealT>>(N, *data_interface.Get_z_opt());
@@ -193,17 +197,33 @@ namespace HDSA
 					u_i_hat[i]->Scale(1.0 / std::sqrt(alpha_d));
 				}
 
-				u_breve = HDSA::makePtr<HDSA::MultiVector<RealT>>(num_samples, *(*data_interface.Get_D())[0]);
-				u_prior_interface.Sample_with_Covariance_W_u_Inverse(*u_breve);
-				z_breve = HDSA::makePtr<HDSA::MultiVector<RealT>>(num_samples, *(*data_interface.Get_Z())[0]);
-				z_prior_interface.Sample_with_Covariance_W_z_Inverse(*z_breve);
-				M_z_z_breve = HDSA::makePtr<HDSA::MultiVector<RealT>>(num_samples, *(*data_interface.Get_Z())[0]);
-				for (int k = 0; k < num_samples; k++)
+				if (sample_breve_vectors)
 				{
-					HDSA::Ptr<HDSA::Vector<RealT>> z_breve_k = (*z_breve)[k];
-					HDSA::Ptr<HDSA::Vector<RealT>> M_z_z_breve_k = (*M_z_z_breve)[k];
-					z_prior_interface.Apply_M_z(*M_z_z_breve_k, *z_breve_k);
+					u_breve = HDSA::makePtr<HDSA::MultiVector<RealT>>(num_samples, *(*data_interface.Get_D())[0]);
+					u_prior_interface.Sample_with_Covariance_W_u_Inverse(*u_breve);
+					z_breve = HDSA::makePtr<HDSA::MultiVector<RealT>>(num_samples, *(*data_interface.Get_Z())[0]);
+					z_prior_interface.Sample_with_Covariance_W_z_Inverse(*z_breve);
+					M_z_z_breve = HDSA::makePtr<HDSA::MultiVector<RealT>>(num_samples, *(*data_interface.Get_Z())[0]);
+					for (int k = 0; k < num_samples; k++)
+					{
+						HDSA::Ptr<HDSA::Vector<RealT>> z_breve_k = (*z_breve)[k];
+						HDSA::Ptr<HDSA::Vector<RealT>> M_z_z_breve_k = (*M_z_z_breve)[k];
+						z_prior_interface.Apply_M_z(*M_z_z_breve_k, *z_breve_k);
+					}
 				}
+				else
+				{
+					u_breve = HDSA::nullPtr;
+					z_breve = HDSA::nullPtr;
+					M_z_z_breve = HDSA::nullPtr;
+				}
+			}
+			else
+			{
+				u_i_hat.clear();
+				u_breve = HDSA::nullPtr;
+				z_breve = HDSA::nullPtr;
+				M_z_z_breve = HDSA::nullPtr;
 			}
 		}
 	};

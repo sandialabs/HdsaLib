@@ -80,7 +80,7 @@ int main(int argc, char *argv[])
 
   HDSA::Ptr<HDSA::MD_Posterior_Sampling<RealT>> post_sampling = HDSA::makePtr<HDSA::MD_Posterior_Sampling<RealT>>(data_interface, u_prior_interface, z_prior_interface);
   RealT alpha_d = 1.e-5;
-  int num_post_samples = 100;
+  int num_post_samples = 20;
   post_sampling->Compute_Posterior_Data(alpha_d, num_post_samples);
 
   std::vector<HDSA::Ptr<HDSA::Vector<RealT>>> z_test;
@@ -121,8 +121,11 @@ int main(int argc, char *argv[])
   int num_continuation_steps = 3;
   HDSA::Ptr<HDSA::MD_Update<RealT>> update = HDSA::makePtr<HDSA::MD_Update<RealT>>(data_interface, u_prior_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis, random_number_generator, num_continuation_steps);
   HDSA::Ptr<HDSA::Vector<RealT>> z_k = update->Posterior_Update_Mean();
+  HDSA::Ptr<HDSA::MD_Posterior_Vectors<RealT>> posterior_update_samples = update->Posterior_Update_Samples();
   name = "posterior_update_mean.txt";
   z_k->Write_to_File(name);
+  name = "posterior_update_samples";
+  posterior_update_samples->samples->Write_to_File(name);
 
   // std::cout << std::scientific << std::setprecision(3);
 

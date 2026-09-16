@@ -359,7 +359,7 @@ int main(int argc, char* argv[]) {
     const int num_continuation_steps = 3;
     const RealT grad_tol = 1e-5;
     HDSA::Ptr<HDSA::MD_Continuation_Update<RealT>> cont_update = HDSA::makePtr<HDSA::MD_Continuation_Update<RealT>>(
-        data_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis, random_number_generator, num_continuation_steps, grad_tol);
+        data_interface, u_prior_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis, random_number_generator, num_continuation_steps, grad_tol);
 
     HDSA::Ptr<HDSA::Vector<RealT>> u_k = data_interface->Get_u_opt()->Clone();
     HDSA::Ptr<HDSA::Vector<RealT>> z_k = data_interface->Get_z_opt()->Clone();

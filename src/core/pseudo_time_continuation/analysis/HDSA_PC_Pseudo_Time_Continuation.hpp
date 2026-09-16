@@ -29,6 +29,7 @@ namespace HDSA
 		RealT cg_tol_;
 		int max_cg_iter_;
 		int max_extra_newton_;
+		int verbosity_;
 
 	protected:
 		virtual int Apply_Inverse_Hessian(HDSA::Vector<RealT> &z_out, const HDSA::Vector<RealT> &z_in, const HDSA::Vector<RealT> &z, const HDSA::PC_Auxillary_Parameter_Trajectory<RealT> &theta_traj, RealT &time_index, RealT &cg_tol) const
@@ -68,7 +69,7 @@ namespace HDSA
 				p->Plus(*v);
 				r_Norm = r->Norm();
 
-				if (print_cg_iter_)
+				if (print_cg_iter_ || verbosity_ > 3)
 				{
 					std::cout << "Iteration = " << iter << " with relative residual = " << r_Norm << std::endl;
 				}
@@ -76,7 +77,7 @@ namespace HDSA
 
 			z_out.Scale(z_in_Norm);
 
-			if (print_cg_output_)
+			if (print_cg_output_ || verbosity_ > 2)
 			{
 				std::cout << "Total iterations = " << iter << std::endl;
 				std::cout << "Relative residual = " << r_Norm << std::endl;
@@ -87,13 +88,23 @@ namespace HDSA
 
 	public:
 		PC_Pseudo_Time_Continuation(const HDSA::Ptr<HDSA::Vector<RealT>> &z_bar, const HDSA::Ptr<HDSA::PC_Sensitivity_Operator_Interface<RealT>> &sen_op_interface, const HDSA::Ptr<HDSA::PC_Quasi_Newton_Preconditioner<RealT>> &qn_prec,
-									const RealT grad_tol, const bool use_qn_prec = true, const bool print_cg_output = true, const bool print_cg_iter = false, const RealT cg_tol = 1.e-5, const int max_cg_iter = 100) : z_bar_(z_bar), sen_op_interface_(sen_op_interface), qn_prec_(qn_prec), grad_tol_(grad_tol), use_qn_prec_(use_qn_prec), print_cg_output_(print_cg_output), print_cg_iter_(print_cg_iter), cg_tol_(cg_tol), max_cg_iter_(max_cg_iter)
+									const RealT grad_tol, const bool use_qn_prec = true, const bool print_cg_output = false, const bool print_cg_iter = false, const RealT cg_tol = 1.e-5, const int max_cg_iter = 100, const int verbosity = 0) : z_bar_(z_bar), sen_op_interface_(sen_op_interface), qn_prec_(qn_prec), grad_tol_(grad_tol), use_qn_prec_(use_qn_prec), print_cg_output_(print_cg_output), print_cg_iter_(print_cg_iter), cg_tol_(cg_tol), max_cg_iter_(max_cg_iter), verbosity_(verbosity)
 		{
 			max_extra_newton_ = 50;
 		}
 
 		virtual ~PC_Pseudo_Time_Continuation()
 		{
+		}
+
+		void Set_Verbosity(const int verbosity)
+		{
+			verbosity_ = verbosity;
+		}
+
+		int Get_Verbosity() const
+		{
+			return verbosity_;
 		}
 
 		void Pseudo_Time_Continuation_Forward_Euler(HDSA::Vector<RealT> &z_star, HDSA::Vector<RealT> &grad_star, const HDSA::PC_Auxillary_Parameter_Trajectory<RealT> &theta_traj)
@@ -137,14 +148,18 @@ namespace HDSA
           exit(1);
 					break;
 				}
-				std::cout << "-----------------------------------------------------" << std::endl;
-				std::cout << "Pseudo_Time_Continuation_Forward_Euler: The gradient Norm after step: " << k << " is " << sol_grad_norm << std::endl;
-				std::cout << "Pseudo_Time_Continuation_Forward_Euler: Beginning B matvec at time step " << k + 1 << std::endl;
+				if (verbosity_ > 1)
+				{
+					std::cout << "-----------------------------------------------------" << std::endl;
+					std::cout << "Pseudo_Time_Continuation_Forward_Euler: The gradient Norm after step: " << k << " is " << sol_grad_norm << std::endl;
+					std::cout << "Pseudo_Time_Continuation_Forward_Euler: Beginning B matvec at time step " << k + 1 << std::endl;
+				}
 				time_index = static_cast<RealT>(k);
 				sen_op_interface_->Apply_B(*z_tmp, *z_current, theta_traj, time_index);
 				num_Bvecs += 1;
 
-				std::cout << "Pseudo_Time_Continuation_Forward_Euler: Beginning inverse Hessian matvec at Euler step " << k + 1 << std::endl;
+				if (verbosity_ > 1)
+					std::cout << "Pseudo_Time_Continuation_Forward_Euler: Beginning inverse Hessian matvec at Euler step " << k + 1 << std::endl;
 				int iters = Apply_Inverse_Hessian(*z_new, *z_tmp, *z_current, theta_traj, time_index, cg_tol_);
 				num_Hvecs += iters;
 
@@ -193,8 +208,11 @@ namespace HDSA
         //Newton loop to find the zero of the solution gradient g(z), using backtracking and armijo condition based on minimizing ||g(z)||^2.
         while ((sol_grad_norm > grad_tol_) && (num_extra_newton < max_extra_newton_))
         {
-          std::cout << "Pseudo_Time_Continuation_Forward_Euler: Newton iteration at step " << k + 1 << std::endl;
-          std::cout << "Pseudo_Time_Continuation_Forward_Euler: The current gradient Norm = " << sol_grad_norm << std::endl;
+          if (verbosity_ > 1)
+          {
+            std::cout << "Pseudo_Time_Continuation_Forward_Euler: Newton iteration at step " << k + 1 << std::endl;
+            std::cout << "Pseudo_Time_Continuation_Forward_Euler: The current gradient Norm = " << sol_grad_norm << std::endl;
+          }
 
           const RealT old_grad_norm = sol_grad_norm;
           const RealT old_grad_norm_sq = old_grad_norm * old_grad_norm;
@@ -231,8 +249,9 @@ namespace HDSA
             // phi'(0) = -g^T H p.
             directional_derivative = -grad_current->Dot(*H_step);
 
-            std::cout << "  CG relative residual = " << eta_actual
-                      << ", phi'(0) = " << directional_derivative << std::endl;
+            if (verbosity_ > 1)
+              std::cout << "  CG relative residual = " << eta_actual
+                        << ", phi'(0) = " << directional_derivative << std::endl;
 
             if ((eta_actual <= eta_max) && (directional_derivative < 0.0))
             {
@@ -241,12 +260,14 @@ namespace HDSA
             }
 
             cg_tol_try *= 0.1;
-            std::cout << "  Recomputing Newton direction with CG tolerance " << cg_tol_try << std::endl;
+            if (verbosity_ > 1)
+              std::cout << "  Recomputing Newton direction with CG tolerance " << cg_tol_try << std::endl;
           }
 
           if (!direction_ok)
           {
-            std::cout << "Failed to obtain a sufficiently accurate descent Newton direction." << std::endl;
+            if (verbosity_ > 0)
+              std::cout << "Failed to obtain a sufficiently accurate descent Newton direction." << std::endl;
             z_current->Set(*z_old);
             break;
           }
@@ -275,8 +296,9 @@ namespace HDSA
             // Armijo condition for phi(z) = 0.5 ||g(z)||^2.
             const RealT armijo_rhs = old_grad_norm_sq + 2.0 * armijo_c * alpha * directional_derivative;
 
-            std::cout << "  Backtracking alpha = " << alpha
-                      << ", ||g_trial|| = " << trial_grad_norm << std::endl;
+            if (verbosity_ > 1)
+              std::cout << "  Backtracking alpha = " << alpha
+                        << ", ||g_trial|| = " << trial_grad_norm << std::endl;
 
             if (trial_grad_norm_sq <= armijo_rhs)
             {
@@ -290,8 +312,9 @@ namespace HDSA
           }
 
           if (accepted) {
-            std::cout << "Accepted Newton step with alpha = " << alpha
-                      << ", new gradient Norm = " << sol_grad_norm << std::endl;
+            if (verbosity_ > 1)
+              std::cout << "Accepted Newton step with alpha = " << alpha
+                        << ", new gradient Norm = " << sol_grad_norm << std::endl;
 
             const RealT relative_grad = sol_grad_norm / initial_grad_norm;
             variable_cg_tol = std::max(cg_tol_, std::min(eta_forcing_max, std::sqrt(relative_grad)));
@@ -304,7 +327,8 @@ namespace HDSA
             }
             sol_grad_norm = min_bt_grad_norm;
             //sol_grad_norm = old_grad_norm;
-            std::cout << "Newton backtracking failed. Using recovery step" << std::endl;
+            if (verbosity_ > 0)
+              std::cout << "Newton backtracking failed. Using recovery step" << std::endl;
             //break;
           }          
 
@@ -316,10 +340,13 @@ namespace HDSA
 			grad_star.Set(*grad_current);
 
 			RealT sol_grad_Norm = grad_current->Norm();
-			std::cout << " " << std::endl;
-			std::cout << "-----------------------------------------------------" << std::endl;
-			std::cout << "Solution gradient Norm = " << sol_grad_Norm << std::endl;
-			std::cout << " " << std::endl;
+			if (verbosity_ > 0)
+			{
+				std::cout << " " << std::endl;
+				std::cout << "-----------------------------------------------------" << std::endl;
+				std::cout << "Solution gradient Norm = " << sol_grad_Norm << std::endl;
+				std::cout << " " << std::endl;
+			}
 
 			std::string name = "Forward_Euler_Cost_Report.txt";
 			std::ofstream fout;
@@ -374,17 +401,22 @@ namespace HDSA
           exit(1);
 					break;
 				}
-				std::cout << "-----------------------------------------------------" << std::endl;
-				std::cout << "Pseudo_Time_Continuation_Modified_Euler: The gradient Norm after step: " << k << " is " << grad_current->Norm() << std::endl;
+				if (verbosity_ > 1)
+				{
+					std::cout << "-----------------------------------------------------" << std::endl;
+					std::cout << "Pseudo_Time_Continuation_Modified_Euler: The gradient Norm after step: " << k << " is " << grad_current->Norm() << std::endl;
+				}
 
 				z_store->Set(*z_current);
 
-				std::cout << "Pseudo_Time_Continuation_Modified_Euler: Beginning B matvec at Euler step " << k + 1 << std::endl;
+				if (verbosity_ > 1)
+					std::cout << "Pseudo_Time_Continuation_Modified_Euler: Beginning B matvec at Euler step " << k + 1 << std::endl;
 				time_index = static_cast<RealT>(k);
 				sen_op_interface_->Apply_B(*z_tmp, *z_current, theta_traj, time_index);
 				num_Bvecs += 1;
 
-				std::cout << "Pseudo_Time_Continuation_Modified_Euler: Beginning inverse Hessian matvec at Euler step " << k + 1 << std::endl;
+				if (verbosity_ > 1)
+					std::cout << "Pseudo_Time_Continuation_Modified_Euler: Beginning inverse Hessian matvec at Euler step " << k + 1 << std::endl;
 				int iters = Apply_Inverse_Hessian(*z_new, *z_tmp, *z_current, theta_traj, time_index, cg_tol_);
 				num_Hvecs += iters;
 
@@ -414,11 +446,13 @@ namespace HDSA
 					qn_prec_->Add_Parametric_Quasi_Newton_Data(*s, *y);
 				}
 
-				std::cout << "Pseudo_Time_Continuation_Modified_Euler: Beginning B matvec at Euler step " << k + 1 << " 1/2" << std::endl;
+				if (verbosity_ > 1)
+					std::cout << "Pseudo_Time_Continuation_Modified_Euler: Beginning B matvec at Euler step " << k + 1 << " 1/2" << std::endl;
 				sen_op_interface_->Apply_B(*z_tmp, *z_current, theta_traj, time_index);
 				num_Bvecs += 1;
 
-				std::cout << "Pseudo_Time_Continuation_Modified_Euler: Beginning inverse Hessian matvec at Euler step " << k + 1 << " 1/2" << std::endl;
+				if (verbosity_ > 1)
+					std::cout << "Pseudo_Time_Continuation_Modified_Euler: Beginning inverse Hessian matvec at Euler step " << k + 1 << " 1/2" << std::endl;
 				iters = Apply_Inverse_Hessian(*z_new, *z_tmp, *z_current, theta_traj, time_index, cg_tol_);
 				num_Hvecs += iters;
 
@@ -450,8 +484,11 @@ namespace HDSA
 
 				if (sol_grad_Norm > grad_tol_)
 				{
-					std::cout << "Pseudo_Time_Continuation_Modified_Euler: Beginning inverse Hessian matvec at Newton step " << k + 1 << std::endl;
-					std::cout << "Pseudo_Time_Continuation_Modified_Euler: The current gradient Norm = " << sol_grad_Norm << std::endl;
+					if (verbosity_ > 1)
+					{
+						std::cout << "Pseudo_Time_Continuation_Modified_Euler: Beginning inverse Hessian matvec at Newton step " << k + 1 << std::endl;
+						std::cout << "Pseudo_Time_Continuation_Modified_Euler: The current gradient Norm = " << sol_grad_Norm << std::endl;
+					}
 					iters = Apply_Inverse_Hessian(*z_new, *grad_current, *z_current, theta_traj, time_index, cg_tol_);
 					num_Hvecs += iters;
 
@@ -471,8 +508,11 @@ namespace HDSA
 				int num_extra_newton = 0;
 				while (sol_grad_Norm > grad_tol_ && num_extra_newton < max_extra_newton_)
 				{
-					std::cout << "Pseudo_Time_Continuation_Modified_Euler: Taking an extra Newton iteration at step " << k + 1 << std::endl;
-					std::cout << "Pseudo_Time_Continuation_Modified_Euler: The current gradient Norm = " << sol_grad_Norm << std::endl;
+					if (verbosity_ > 1)
+					{
+						std::cout << "Pseudo_Time_Continuation_Modified_Euler: Taking an extra Newton iteration at step " << k + 1 << std::endl;
+						std::cout << "Pseudo_Time_Continuation_Modified_Euler: The current gradient Norm = " << sol_grad_Norm << std::endl;
+					}
 					iters = Apply_Inverse_Hessian(*z_new, *grad_current, *z_current, theta_traj, time_index, variable_cg_tol);
 					num_Hvecs += iters;
 					z_current->Scaled_Plus(-1.0, *z_new);
@@ -487,10 +527,13 @@ namespace HDSA
 			grad_star.Set(*grad_current);
 
 			RealT sol_grad_Norm = grad_current->Norm();
-			std::cout << " " << std::endl;
-			std::cout << "-----------------------------------------------------" << std::endl;
-			std::cout << "Solution gradient Norm = " << sol_grad_Norm << std::endl;
-			std::cout << " " << std::endl;
+			if (verbosity_ > 0)
+			{
+				std::cout << " " << std::endl;
+				std::cout << "-----------------------------------------------------" << std::endl;
+				std::cout << "Solution gradient Norm = " << sol_grad_Norm << std::endl;
+				std::cout << " " << std::endl;
+			}
 
 			std::string name = "Modified_Euler_Cost_Report.txt";
 			std::ofstream fout;

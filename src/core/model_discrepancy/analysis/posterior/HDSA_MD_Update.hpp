@@ -26,11 +26,11 @@ namespace HDSA
     MD_Update(const HDSA::Ptr<HDSA::MD_Data_Interface<RealT>> &data_interface, const HDSA::Ptr<HDSA::MD_u_Prior_Interface<RealT>> &u_prior_interface,
               const HDSA::Ptr<HDSA::MD_z_Prior_Interface<RealT>> &z_prior_interface, const HDSA::Ptr<HDSA::MD_Opt_Prob_Interface<RealT>> &opt_prob_interface,
               const HDSA::Ptr<HDSA::MD_Posterior_Sampling<RealT>> &post_sampling, const HDSA::Ptr<HDSA::MD_Hessian_Analysis<RealT>> &hessian_analysis, 
-              const HDSA::Ptr<HDSA::Random_Number_Generator<RealT>> &random_number_generator, int num_continuation_steps = 0, const RealT grad_tol = 1e-5) : num_continuation_steps_(num_continuation_steps)
+              const HDSA::Ptr<HDSA::Random_Number_Generator<RealT>> &random_number_generator, int num_continuation_steps = 0, const RealT grad_tol = 1e-5, bool discard_cache = true, int verbosity = 0) : num_continuation_steps_(num_continuation_steps)
     {
       if (num_continuation_steps_ > 0)
       {
-        continuation_update_ = HDSA::makePtr<HDSA::MD_Continuation_Update<RealT>>(data_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis, random_number_generator, num_continuation_steps, grad_tol);
+        continuation_update_ = HDSA::makePtr<HDSA::MD_Continuation_Update<RealT>>(data_interface, u_prior_interface, z_prior_interface, opt_prob_interface, post_sampling, hessian_analysis, random_number_generator, num_continuation_steps, grad_tol, discard_cache, verbosity);
       }
       else
       {
@@ -47,7 +47,6 @@ namespace HDSA
       HDSA::Ptr<HDSA::MD_Posterior_Vectors<RealT>> posterior_samples;
       if (num_continuation_steps_ > 0)
       {
-        std::cout << "Warning: The current implementation of posterior sampling with continuation is incomplete and should not be used. An improved version is currently in development." << std::endl;
         posterior_samples = continuation_update_->Posterior_Update_Samples();
       }
       else
