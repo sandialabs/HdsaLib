@@ -1,0 +1,25 @@
+%YAML 1.1
+---
+ANONYMOUS:
+  Parameters: 
+    lambda: 
+      type: scalar
+      value: 4.64e+10
+      usage: inactive
+    mu: 
+      type: scalar
+      value: 4.10e+10
+      usage: inactive
+    z1: 
+      type: scalar
+      value: 0.05
+      usage: active
+    z2: 
+      type: scalar
+      value: 0.05
+      usage: active
+    z3: 
+      type: scalar
+      value: 0.05
+      usage: active
+...

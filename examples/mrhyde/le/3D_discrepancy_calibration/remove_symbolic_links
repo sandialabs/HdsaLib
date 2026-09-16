@@ -1,0 +1,14 @@
+cd optimization
+rm mrhyde
+rm dmrhyde
+cd ../
+
+cd fwd_hifi_data_generation
+rm mrhyde
+rm dmrhyde
+cd ../
+
+cd hdsa
+rm mrhyde
+rm dmrhyde
+cd ../

@@ -1,0 +1,96 @@
+reset
+
+# --------------------------------------------------
+# Parameters
+# --------------------------------------------------
+${Lx=100}      # horizontal leg length
+${Ly=100}      # vertical leg height
+${t=10}        # thickness of both legs
+${w=40}        # width in z-direction
+${g=50}        # gusset length/height extent
+${ghx=30}
+${ghy=30}
+${eps=0.01}    # small overlap for webcuts/unites
+
+# --------------------------------------------------
+# Create the two legs of the L-bracket
+# --------------------------------------------------
+
+# Horizontal leg
+create brick x {Lx} y {t} z {w}
+move volume 1 x {Lx/2} y {t/2} z {w/2}
+
+# Vertical leg
+create brick x {t} y {Ly} z {w}
+move volume 2 x {t/2} y {Ly/2} z {w/2}
+
+# Unite legs
+unite volume 1 2
+
+# --------------------------------------------------
+# Create triangular gusset as a prism in z
+# The triangle lies in the x-y plane with points:
+#   (t, t), (g, t), (t, g)
+# --------------------------------------------------
+
+create vertex {t} {t} 0
+create vertex {g} {t} 0
+create vertex {t} {g} 0
+
+create curve vertex 19 20
+create curve vertex 20 21
+create curve vertex 21 19
+
+create surface curve 33 34 35
+
+# Extrude gusset through bracket width
+sweep surface 18 vector 0 0 {w}
+
+# --------------------------------------------------
+# Create triangular hole through gusset
+# Hole is an equilateral-style triangle centered near
+# the gusset centroid region and swept through z
+# --------------------------------------------------
+
+${hc = t + 0.0*(g-t)/10.0}
+
+create vertex {hc}       {hc}       {-eps}
+create vertex {hc + ghx} {hc}       {-eps}
+create vertex {hc}       {hc + ghy} {-eps}
+
+create curve vertex 28 29
+create curve vertex 29 30
+create curve vertex 30 28
+
+create surface curve 42 43 44
+
+# Sweep triangular hole tool through full bracket width
+sweep surface 23 vector 0 0 {w + 2*eps}
+
+subtract volume 4 from volume 3 keep
+delete volume 3,4
+
+# --------------------------------------------------
+# Unite gusset with main L-bracket
+# --------------------------------------------------
+
+unite volume 1 5
+
+rotate volume 1 angle 90 about y
+
+sideset 1 add surface 4
+sideset 1 name "top"
+sideset 2 add surface 15
+sideset 2 name "mount_side"
+sideset 3 add surface 35
+sideset 3 name "hanging_underside"
+
+volume 1 size 0.6
+mesh volume 1
+
+set duplicate block elements off
+block 1 volume all
+block 1 name "eblock-0_0_0"
+set exodus netcdf4 off
+set large exodus file on
+export Genesis  "mesh.exo" dimension 3 block 1 overwrite 

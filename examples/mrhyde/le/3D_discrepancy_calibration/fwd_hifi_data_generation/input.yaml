@@ -1,0 +1,66 @@
+%YAML 1.1
+---
+ANONYMOUS:
+  verbosity: 12
+  debug level: 0
+  Mesh:
+    dimension: 3
+    mesh file: mesh.exo
+    shape: tet
+    source: Exodus
+  Analysis input file: input_readExo.yaml
+  Parameters input file: input_params.yaml
+  Physics:
+    modules: thermal, linearelasticity
+    alpha_T: 0.0005
+    Dirichlet conditions:
+      dx:
+        mount_side: '0.0'
+      dy:
+        mount_side: '0.0'
+      dz:
+        mount_side: '0.0'
+    Neumann conditions:
+      dz:
+        top: '-0.01'
+        under_side: 'z1 * indicator_1 + z2 * indicator_2 + z3 * indicator_3'
+  Functions:
+    source dx: '0.0'
+    source dy: '0.0'
+    indicator_1: sqrt((x-15.0)^2 + (y-90.0)^2) < 2.0^2
+    indicator_2: sqrt((x-13.0)^2 + (y-80.0)^2) < 2.0^2
+    indicator_3: sqrt((x-17.0)^2 + (y-85.0)^2) < 2.0^2
+    indicator_target: 60.0 < y
+  Discretization:
+    order:
+      dx: 1
+      dy: 1
+      dz: 1
+    quadrature: 2
+  Solver:
+    linear TOL: 1.0e-9
+    max linear iters: 2000
+    max nonlinear iters: 5
+    nonlinear TOL: 1.0e-9
+    preconditioner type: domain decomposition
+    solver: steady-state
+    use preconditioner: true
+    use relative TOL: true
+    workset size: 100
+  Postprocess:
+    output file: output_hifi_1
+    write solution: true 
+    response type: pointwise
+    compute objective: true
+    Objective functions:
+      obj0:
+        type: integrated control
+        function: '0.5*dz^2 * indicator_target'
+        weight: 1.0
+      Regularization functions:
+          reg0:
+            type: integrated
+            location: volume
+            function: '0.0'
+            weight: 0.0
+...

@@ -1,0 +1,33 @@
+%YAML 1.1
+---
+ANONYMOUS:
+  Analysis: 
+    analysis type: HDSA
+    HDSA:
+      Configuration:
+        num_prior_samples: 10
+        num_posterior_samples: 10
+        execute_prior_discrepancy_sampling: true
+        execute_posterior_discrepancy_sampling: true
+        execute_optimal_solution_update: false
+        verbosity: 3
+      Prior Computation:
+        State Prior: "Bilaplacian"
+        #State Prior: "Lumped_Mass"
+        use_incomplete_prec: true
+      HyperParameters:
+        dx:
+          beta_u: 0.02
+        dy:
+          beta_u: 0.02
+        dz:
+          beta_u: 0.02
+        T:
+          beta_u: 0.02
+      DataLoadParameters:
+        OptimalSolutionExoFile: "output_lofi_opt.exo"
+        OptimalSolutionTxtFileZ: "final_params_.dat"
+        NumHifi: 1
+        HifiExoFile1: "output_hifi_1.exo"
+        TxtFileZ1: "final_params_.dat"
+...

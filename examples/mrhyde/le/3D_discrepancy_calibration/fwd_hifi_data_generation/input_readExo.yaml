@@ -1,0 +1,9 @@
+%YAML 1.1
+---
+ANONYMOUS:
+  Analysis: 
+    analysis type: readExo+forward
+    readExo+forward:
+      DataLoadParameters:
+        TxtFile: "final_params_.dat"
+...

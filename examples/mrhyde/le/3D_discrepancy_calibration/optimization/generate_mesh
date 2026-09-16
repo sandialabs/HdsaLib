@@ -1,0 +1,6 @@
+module load seacas
+cubit -nographics -batch mesh.jou
+
+rm -f cubit*
+
+decomp -j 8 mesh.exo

@@ -1,0 +1,9 @@
+# Ensure that the MrHyDE executable has been linked to the current directory under the name "mrhyde"
+
+# Set link to optimization solution
+ln -s ../optimization/mesh.exo.8* .
+ln -s ../optimization/final_params_.dat .
+
+mpiexec -n 8 mrhyde 
+
+mv obj_val.txt hifi_obj_lofi_z_val.txt
