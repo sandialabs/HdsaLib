@@ -37,9 +37,9 @@ namespace HDSA
 		{
 		}
 
-		void Compute_Posterior_Data(const RealT &alpha_d, const int &num_samples)
+		void Compute_Posterior_Data(const RealT &alpha_d, const int &num_samples, bool sample_breve_vectors = true)
 		{
-			post_data->Compute_Posterior_Data(*data_interface_, *u_prior_interface_, *z_prior_interface_, alpha_d, num_samples);
+			post_data->Compute_Posterior_Data(*data_interface_, *u_prior_interface_, *z_prior_interface_, alpha_d, num_samples, sample_breve_vectors);
 		}
 
 		std::vector<HDSA::Ptr<HDSA::MD_Posterior_Vectors<RealT>>> Posterior_Discrepancy_Samples(std::vector<HDSA::Ptr<HDSA::Vector<RealT>>> &z) const
@@ -65,6 +65,9 @@ namespace HDSA
 					RealT coeff = 1.0 + (*post_data->W_z_inv_M_z_Z)[ell]->Dot(*M_z_dz_k) - post_data->W_z_inv_M_z_z_opt->Dot(*M_z_dz_k);
 					delta_mean_k->Scaled_Plus(coeff, *(*post_data->u_ell)[ell]);
 				}
+
+				HDSA_TEST_FOR_EXCEPTION(post_data->u_breve == HDSA::nullPtr, std::logic_error,
+										"Error in HDSA::MD_Posterior_Sampling::Posterior_Discrepancy_Samples: explicit breve samples were not stored. Recompute posterior data with sample_breve_vectors = true." << std::endl);
 
 				for (int i = 0; i < post_data->N; i++)
 				{
