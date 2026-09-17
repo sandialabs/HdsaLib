@@ -12,18 +12,22 @@ ANONYMOUS:
         execute_optimal_solution_update: false
         verbosity: 3
       Prior Computation:
-        State Prior: "Bilaplacian"
-        #State Prior: "Lumped_Mass"
+        #State Prior: "Bilaplacian"
+        State Prior: "Lumped_Mass"
         use_incomplete_prec: true
       HyperParameters:
         dx:
-          beta_u: 0.02
+          alpha_u: 0.0326737
+          beta_u: 0.7
+          alpha_d: 0.000476652
         dy:
-          beta_u: 0.02
+          alpha_u: 0.349279
+          beta_u: 0.7
+          alpha_d: 0.00509536
         dz:
-          beta_u: 0.02
-        T:
-          beta_u: 0.02
+          alpha_u: 0.0598205
+          beta_u: 0.7
+          alpha_d: 0.000872676
       DataLoadParameters:
         OptimalSolutionExoFile: "output_lofi_opt.exo"
         OptimalSolutionTxtFileZ: "final_params_.dat"

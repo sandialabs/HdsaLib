@@ -12,14 +12,14 @@ ANONYMOUS:
       usage: inactive
     z1: 
       type: scalar
-      value: 0.05
+      value: 0.01
       usage: active
     z2: 
       type: scalar
-      value: 0.05
+      value: 0.01
       usage: active
     z3: 
       type: scalar
-      value: 0.05
+      value: 0.01
       usage: active
 ...
