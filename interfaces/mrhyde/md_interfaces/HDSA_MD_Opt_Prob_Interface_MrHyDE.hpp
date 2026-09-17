@@ -63,7 +63,7 @@ public:
   // Apply_Misfit_Hessian
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  void Apply_Solution_Operator_z_Jacobian_Transpose(HDSA::Vector<RealT> &z_out, const HDSA::Vector<RealT> &u_in, const HDSA::Vector<RealT> &z) const
+  void Apply_Solution_Operator_z_Jacobian_Transpose(HDSA::Vector<RealT> &z_out, const HDSA::Vector<RealT> &u_in, const HDSA::Vector<RealT> &z) const override
   {
     Write_Data_Solution_Operator(u_in);
     Do_Solution_Operator(true);
@@ -71,7 +71,7 @@ public:
     z_out.Scale(-1.0);
   }
 
-  void Apply_RS_Hessian(HDSA::Vector<RealT> &z_out, const HDSA::Vector<RealT> &z_in, const HDSA::Vector<RealT> &z) const
+  void Apply_RS_Hessian(HDSA::Vector<RealT> &z_out, const HDSA::Vector<RealT> &z_in, const HDSA::Vector<RealT> &z) const override
   {
     Do_Solution_Operator(false);
     HDSA::Ptr<HDSA::Vector<RealT>> grad_base = z_out.Clone();
@@ -89,7 +89,7 @@ public:
     Ensure_Current_Params_And_State(z);
   }
 
-  void Misfit_Gradient(HDSA::Vector<RealT> &u_grad, const HDSA::Vector<RealT> &u, const HDSA::Vector<RealT> &z) const
+  void Misfit_Gradient(HDSA::Vector<RealT> &u_grad, const HDSA::Vector<RealT> &u, const HDSA::Vector<RealT> &z) const override
   {
     Do_Solution_Operator(false);
     if (solver_->isTransient)
@@ -138,7 +138,7 @@ public:
     }
   }
 
-  void Apply_Misfit_Hessian(HDSA::Vector<RealT> &u_out, const HDSA::Vector<RealT> &u_in, const HDSA::Vector<RealT> &u, const HDSA::Vector<RealT> &z) const
+  void Apply_Misfit_Hessian(HDSA::Vector<RealT> &u_out, const HDSA::Vector<RealT> &u_in, const HDSA::Vector<RealT> &u, const HDSA::Vector<RealT> &z) const override
   {
     HDSA::Ptr<HDSA::Vector<RealT>> ugrad_nom = u_out.Clone();
     Misfit_Gradient(*ugrad_nom, u, z);

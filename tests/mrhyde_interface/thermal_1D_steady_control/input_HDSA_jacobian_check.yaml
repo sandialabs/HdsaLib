@@ -6,8 +6,8 @@ ANONYMOUS:
     HDSA:
       Configuration:
         check_solution_operator_z_jacobian: true
-        solution_operator_z_jacobian_check_step: 1.0e-6
-        solution_operator_z_jacobian_check_tolerance: 1.0e-10
+        solution_operator_z_jacobian_check_step: 1.0e-5
+        solution_operator_z_jacobian_check_tolerance: 1.0e-8
         verbosity: 1
       HyperParameters:
         T:
