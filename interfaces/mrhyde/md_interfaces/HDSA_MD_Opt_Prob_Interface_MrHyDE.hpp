@@ -20,17 +20,14 @@ class MD_Opt_Prob_Interface_MrHyDE : public HDSA::MD_Opt_Prob_Interface<RealT>
 {
 
 private:
-  typedef Tpetra::MultiVector<ScalarT, LO, GO, SolverNode> LA_MultiVector;
-  typedef Tpetra::CrsMatrix<ScalarT, LO, GO, SolverNode> LA_CrsMatrix;
-  typedef Teuchos::RCP<LA_MultiVector> vector_RCP;
-  typedef Teuchos::RCP<LA_CrsMatrix> matrix_RCP;
 
   HDSA::Ptr<MrHyDE::SolverManager<SolverNode>> solver_;
   HDSA::Ptr<MrHyDE::PostprocessManager<SolverNode>> postproc_;
   HDSA::Ptr<MrHyDE::ParameterManager<SolverNode>> params_;
   
   HDSA::Ptr<Solver_Interface_MrHyDE<RealT>> solver_interface_;
-  HDSA::Ptr<HDSA::Vector<RealT>> grad_nom_;
+  HDSA::Ptr<HDSA::Vector<RealT>> z_base_;
+  HDSA::Ptr<HDSA::Vector<RealT>> grad_base_;
 
 public:
   MD_Opt_Prob_Interface_MrHyDE(HDSA::Ptr<MrHyDE::SolverManager<SolverNode>> &solver, HDSA::Ptr<MrHyDE::PostprocessManager<SolverNode>> &postproc, HDSA::Ptr<MrHyDE::ParameterManager<SolverNode>> &params, const HDSA::Ptr<HDSA::MD_Data_Interface<RealT>> &data_interface)
@@ -47,8 +44,10 @@ public:
       postproc_->hdsa_solop_data[set] = HDSA::makePtr<MrHyDE::SolutionStorage<SolverNode>>(solver_->settings);
     }
 
-    grad_nom_ = data_interface->Get_z_opt()->Clone();
-    RS_Gradient(*grad_nom_, *data_interface->Get_z_opt());
+    z_base_ = data_interface->Get_z_opt()->Clone();
+    z_base_->Set(*data_interface->Get_z_opt());
+    grad_base_ = data_interface->Get_z_opt()->Clone();
+    RS_Gradient(*grad_base_, *z_base_);
   }
 
   virtual ~MD_Opt_Prob_Interface_MrHyDE()
@@ -74,19 +73,15 @@ public:
   void Apply_RS_Hessian(HDSA::Vector<RealT> &z_out, const HDSA::Vector<RealT> &z_in, const HDSA::Vector<RealT> &z) const override
   {
     Do_Solution_Operator(false);
-    HDSA::Ptr<HDSA::Vector<RealT>> grad_base = z_out.Clone();
+    Do_Base_Update(z);
     HDSA::Ptr<HDSA::Vector<RealT>> z_pert = z.Clone();
     z_pert->Set(z);
     RealT h = 1.e-4;
     z_pert->Scaled_Plus(h, z_in);
 
-    RS_Gradient(*grad_base, z);
     RS_Gradient(z_out, *z_pert);
-    z_out.Scaled_Plus(-1.0, *grad_base);
+    z_out.Scaled_Plus(-1.0, *grad_base_);
     z_out.Scale(1.0 / h);
-
-    Do_Solution_Operator(false);
-    Ensure_Current_Params_And_State(z);
   }
 
   void Misfit_Gradient(HDSA::Vector<RealT> &u_grad, const HDSA::Vector<RealT> &u, const HDSA::Vector<RealT> &z) const override
@@ -184,7 +179,6 @@ public:
   void Regularization_Gradient(HDSA::Vector<RealT> &grad_z, const HDSA::Vector<RealT> &u, const HDSA::Vector<RealT> &z) const override
   {
     Do_Solution_Operator(false);
-    Ensure_Current_Params_And_State(z);
     grad_z.Zeros();
 
     if (solver_->isTransient)
@@ -199,7 +193,7 @@ public:
           params_->updateDynamicParams(i);
           postproc_->setTimeIndex(i);
 
-          std::vector<vector_RCP> current_soln;
+          std::vector<Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>>> current_soln;
           current_soln.push_back(Overlapped_State_Vector(*eu[i + 1], 0));
 
           DFAD obj_sens = 0.0;
@@ -216,7 +210,7 @@ public:
           params_->updateDynamicParams(i);
           postproc_->setTimeIndex(i);
 
-          std::vector<vector_RCP> current_soln;
+          std::vector<Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>>> current_soln;
           current_soln.push_back(Overlapped_State_Vector(*eu[i + 1], 0));
 
           DFAD obj_sens = 0.0;
@@ -230,7 +224,7 @@ public:
     }
     else
     {
-      std::vector<vector_RCP> current_soln;
+      std::vector<Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>>> current_soln;
       current_soln.push_back(Overlapped_State_Vector(u, 0));
 
       DFAD obj_sens = 0.0;
@@ -248,15 +242,15 @@ public:
     HDSA::Ptr<HDSA::Vector<RealT>> z_base_apply = z_out.Clone();
     HDSA::Ptr<HDSA::Vector<RealT>> z_pert = z.Clone();
 
-    const RealT z_norm = std::sqrt(z.Dot(z));
-    const RealT dz_norm = std::sqrt(z_in.Dot(z_in));
+    const RealT z_norm = z.Norm();
+    const RealT dz_norm = z_in.Norm();
     if (dz_norm == 0.0)
     {
       z_out.Zeros();
       return;
     }
 
-    const RealT h = 1.0e-6 * (1.0 + z_norm) / dz_norm;
+    const RealT h = 1.0e-5 * (1.0 + z_norm) / dz_norm;
     z_pert->Set(z);
     z_pert->Scaled_Plus(h, z_in);
 
@@ -265,9 +259,6 @@ public:
 
     z_out.Scaled_Plus(-1.0, *z_base_apply);
     z_out.Scale(1.0 / h);
-
-    Do_Solution_Operator(false);
-    Ensure_Current_Params_And_State(z);
   }
 
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -297,6 +288,19 @@ public:
   void Do_Solution_Operator(bool solop_flag) const
   {
     postproc_->hdsa_solop = solop_flag;
+  }
+
+  void Do_Base_Update(const HDSA::Vector<RealT> &z) const
+  {
+    HDSA::Ptr<HDSA::Vector<RealT>> z_tmp = z.Clone();
+    z_tmp->Set(z);
+    z_tmp->Scaled_Plus(-1.0, *z_base_);
+    RealT diff = z_tmp->Norm();
+    if(diff > 1.e-13)
+    {
+      z_base_->Set(z);
+      RS_Gradient(*grad_base_, *z_base_);
+    }
   }
 
   void RS_Gradient(HDSA::Vector<RealT> &grad_z, const HDSA::Vector<RealT> &z) const
@@ -359,48 +363,48 @@ public:
     }
   }
 
-  vector_RCP Owned_State_Vector(const HDSA::Vector<RealT> &u, const size_t set) const
+  Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>> Owned_State_Vector(const HDSA::Vector<RealT> &u, const size_t set) const
   {
     const HDSA::Tpetra_Vector<RealT> &eu = dynamic_cast<const HDSA::Tpetra_Vector<RealT> &>(u);
-    vector_RCP u_owned = solver_->linalg->getNewVector(set);
+    Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>> u_owned = solver_->linalg->getNewVector(set);
     u_owned->update(1.0, *eu.getVector(), 0.0);
     return u_owned;
   }
 
-  vector_RCP Overlapped_State_Vector(const HDSA::Vector<RealT> &u, const size_t set) const
+  Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>> Overlapped_State_Vector(const HDSA::Vector<RealT> &u, const size_t set) const
   {
-    vector_RCP u_over = solver_->linalg->getNewOverlappedVector(set);
-    vector_RCP u_owned = Owned_State_Vector(u, set);
+    Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>> u_over = solver_->linalg->getNewOverlappedVector(set);
+    Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>> u_owned = Owned_State_Vector(u, set);
     solver_->linalg->importVectorToOverlapped(set, u_over, u_owned);
     return u_over;
   }
 
-  vector_RCP Extract_Stored_State(const size_t set, const size_t timeindex) const
+  Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>> Extract_Stored_State(const size_t set, const size_t timeindex) const
   {
-    vector_RCP u_vec;
+    Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>> u_vec;
     bool found = postproc_->soln[set]->extract(u_vec, timeindex);
     TEUCHOS_TEST_FOR_EXCEPTION(!found, std::runtime_error, "Error in HDSA MrHyDE interface: unable to find stored forward solution.");
     return u_vec;
   }
 
-  vector_RCP Extract_Stored_State_Overlapped(const size_t set, const size_t timeindex) const
+  Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>> Extract_Stored_State_Overlapped(const size_t set, const size_t timeindex) const
   {
     return Extract_Stored_State(set, timeindex);
   }
 
-  matrix_RCP Assemble_State_Jacobian(const size_t set,
+  Teuchos::RCP<Tpetra::CrsMatrix<ScalarT, LO, GO, SolverNode>> Assemble_State_Jacobian(const size_t set,
                                      const size_t stage,
-                                     std::vector<vector_RCP> &sol,
-                                     std::vector<vector_RCP> &sol_stage,
-                                     std::vector<vector_RCP> &sol_prev,
+                                     std::vector<Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>>> &sol,
+                                     std::vector<Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>>> &sol_stage,
+                                     std::vector<Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>>> &sol_prev,
                                      const bool isTD,
                                      const ScalarT current_time,
                                      const bool is_final_time) const
   {
-    std::vector<vector_RCP> zero_vec;
-    vector_RCP res_over = solver_->linalg->getNewOverlappedVector(set);
-    matrix_RCP J = solver_->linalg->getNewMatrix(set);
-    matrix_RCP J_over = solver_->linalg->getNewOverlappedMatrix(set);
+    std::vector<Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>>> zero_vec;
+    Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>> res_over = solver_->linalg->getNewOverlappedVector(set);
+    Teuchos::RCP<Tpetra::CrsMatrix<ScalarT, LO, GO, SolverNode>> J = solver_->linalg->getNewMatrix(set);
+    Teuchos::RCP<Tpetra::CrsMatrix<ScalarT, LO, GO, SolverNode>> J_over = solver_->linalg->getNewOverlappedMatrix(set);
 
     solver_->linalg->fillComplete(J_over);
     J_over->resumeFill();
@@ -421,20 +425,20 @@ public:
     return J;
   }
 
-  matrix_RCP Assemble_Previous_State_Jacobian(const size_t set,
+  Teuchos::RCP<Tpetra::CrsMatrix<ScalarT, LO, GO, SolverNode>> Assemble_Previous_State_Jacobian(const size_t set,
                                               const size_t stage,
-                                              std::vector<vector_RCP> &sol,
-                                              std::vector<vector_RCP> &sol_stage,
-                                              std::vector<vector_RCP> &sol_prev,
+                                              std::vector<Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>>> &sol,
+                                              std::vector<Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>>> &sol_stage,
+                                              std::vector<Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>>> &sol_prev,
                                               const size_t previous_step,
                                               const ScalarT current_time,
                                               const bool is_final_time) const
   {
-    std::vector<vector_RCP> zero_vec;
-    vector_RCP res_over = solver_->linalg->getNewOverlappedVector(set);
-    std::vector<matrix_RCP> Jprev = solver_->linalg->getNewPreviousMatrix(set, previous_step + 1);
-    matrix_RCP J = Jprev[previous_step];
-    matrix_RCP J_over = solver_->linalg->getNewOverlappedMatrix(set);
+    std::vector<Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>>> zero_vec;
+    Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>> res_over = solver_->linalg->getNewOverlappedVector(set);
+    std::vector<Teuchos::RCP<Tpetra::CrsMatrix<ScalarT, LO, GO, SolverNode>>> Jprev = solver_->linalg->getNewPreviousMatrix(set, previous_step + 1);
+    Teuchos::RCP<Tpetra::CrsMatrix<ScalarT, LO, GO, SolverNode>> J = Jprev[previous_step];
+    Teuchos::RCP<Tpetra::CrsMatrix<ScalarT, LO, GO, SolverNode>> J_over = solver_->linalg->getNewOverlappedMatrix(set);
 
     solver_->linalg->fillComplete(J_over);
     J_over->resumeFill();
@@ -455,13 +459,13 @@ public:
     return J;
   }
 
-  void Apply_Residual_z_Derivative(vector_RCP &rhs,
+  void Apply_Residual_z_Derivative(Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>> &rhs,
                                    const HDSA::Vector<RealT> &z_in,
                                    const size_t set,
                                    const size_t stage,
-                                   std::vector<vector_RCP> &sol,
-                                   std::vector<vector_RCP> &sol_stage,
-                                   std::vector<vector_RCP> &sol_prev,
+                                   std::vector<Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>>> &sol,
+                                   std::vector<Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>>> &sol_stage,
+                                   std::vector<Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>>> &sol_prev,
                                    const bool isTD,
                                    const ScalarT current_time,
                                    const bool is_final_time) const
@@ -483,13 +487,13 @@ public:
     }
   }
 
-  void Apply_Residual_Active_Param_Derivative(vector_RCP &rhs,
+  void Apply_Residual_Active_Param_Derivative(Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>> &rhs,
                                               const HDSA::Std_Vector<RealT> &z_in,
                                               const size_t set,
                                               const size_t stage,
-                                              std::vector<vector_RCP> &sol,
-                                              std::vector<vector_RCP> &sol_stage,
-                                              std::vector<vector_RCP> &sol_prev,
+                                              std::vector<Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>>> &sol,
+                                              std::vector<Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>>> &sol_stage,
+                                              std::vector<Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>>> &sol_prev,
                                               const bool isTD,
                                               const ScalarT current_time,
                                               const bool is_final_time) const
@@ -503,10 +507,10 @@ public:
 
     params_->sacadoizeParams(true);
 
-    std::vector<vector_RCP> zero_vec;
-    vector_RCP res = solver_->linalg->getNewVector(set, params_->num_active_params);
-    vector_RCP res_over = solver_->linalg->getNewOverlappedVector(set, params_->num_active_params);
-    matrix_RCP J_over = solver_->linalg->getNewOverlappedMatrix(set);
+    std::vector<Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>>> zero_vec;
+    Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>> res = solver_->linalg->getNewVector(set, params_->num_active_params);
+    Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>> res_over = solver_->linalg->getNewOverlappedVector(set, params_->num_active_params);
+    Teuchos::RCP<Tpetra::CrsMatrix<ScalarT, LO, GO, SolverNode>> J_over = solver_->linalg->getNewOverlappedMatrix(set);
     res_over->putScalar(0.0);
 
     auto paramvec = params_->getDiscretizedParamsOver();
@@ -537,23 +541,23 @@ public:
     params_->sacadoizeParams(false);
   }
 
-  void Apply_Residual_Discretized_Param_Derivative(vector_RCP &rhs,
+  void Apply_Residual_Discretized_Param_Derivative(Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>> &rhs,
                                                    const HDSA::Tpetra_Vector<RealT> &z_in,
                                                    const size_t set,
                                                    const size_t stage,
-                                                   std::vector<vector_RCP> &sol,
-                                                   std::vector<vector_RCP> &sol_stage,
-                                                   std::vector<vector_RCP> &sol_prev,
+                                                   std::vector<Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>>> &sol,
+                                                   std::vector<Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>>> &sol_stage,
+                                                   std::vector<Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>>> &sol_prev,
                                                    const bool isTD,
                                                    const ScalarT current_time,
                                                    const bool is_final_time) const
   {
     params_->sacadoizeParams(false);
 
-    std::vector<vector_RCP> zero_vec;
-    vector_RCP res_over = solver_->linalg->getNewOverlappedVector(set);
-    matrix_RCP J = solver_->linalg->getNewParamStateMatrix(set);
-    matrix_RCP J_over = solver_->linalg->getNewOverlappedParamStateMatrix(set);
+    std::vector<Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>>> zero_vec;
+    Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>> res_over = solver_->linalg->getNewOverlappedVector(set);
+    Teuchos::RCP<Tpetra::CrsMatrix<ScalarT, LO, GO, SolverNode>> J = solver_->linalg->getNewParamStateMatrix(set);
+    Teuchos::RCP<Tpetra::CrsMatrix<ScalarT, LO, GO, SolverNode>> J_over = solver_->linalg->getNewOverlappedParamStateMatrix(set);
 
     J->setAllToScalar(0.0);
     J_over->setAllToScalar(0.0);
@@ -573,7 +577,7 @@ public:
     J->apply(*z_in.getVector(), *rhs, Teuchos::TRANS);
   }
 
-  void Apply_Solution_Operator_z_Jacobian_Steady(const vector_RCP &u_out, const HDSA::Vector<RealT> &z_in,
+  void Apply_Solution_Operator_z_Jacobian_Steady(const Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>> &u_out, const HDSA::Vector<RealT> &z_in,
                                                  const ScalarT current_time, const size_t timeindex) const
   {
     const size_t set = 0;
@@ -583,17 +587,17 @@ public:
     solver_->assembler->updatePhysicsSet(set);
     solver_->assembler->updateStage(stage, current_time, solver_->deltat);
 
-    std::vector<vector_RCP> sol, sol_stage, sol_prev;
+    std::vector<Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>>> sol, sol_stage, sol_prev;
     for (size_t iset = 0; iset < solver_->setnames.size(); iset++)
     {
       sol.push_back(Extract_Stored_State_Overlapped(iset, timeindex));
     }
 
-    matrix_RCP J = Assemble_State_Jacobian(set, stage, sol, sol_stage, sol_prev, false, current_time, true);
-    vector_RCP rhs = solver_->linalg->getNewVector(set);
+    Teuchos::RCP<Tpetra::CrsMatrix<ScalarT, LO, GO, SolverNode>> J = Assemble_State_Jacobian(set, stage, sol, sol_stage, sol_prev, false, current_time, true);
+    Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>> rhs = solver_->linalg->getNewVector(set);
     Apply_Residual_z_Derivative(rhs, z_in, set, stage, sol, sol_stage, sol_prev, false, current_time, true);
 
-    vector_RCP du = solver_->linalg->getNewVector(set);
+    Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>> du = solver_->linalg->getNewVector(set);
     du->putScalar(0.0);
     solver_->linalg->linearSolver(set, J, rhs, du);
 
@@ -627,7 +631,7 @@ public:
       solver_->assembler->updatePhysicsSet(set);
       solver_->assembler->updateStage(stage, current_time, solver_->deltat);
 
-      std::vector<vector_RCP> sol, sol_stage, sol_prev;
+      std::vector<Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>>> sol, sol_stage, sol_prev;
       sol.push_back(Extract_Stored_State_Overlapped(set, step + 1));
       sol_stage.push_back(sol[0]);
       for (size_t p = 0; p < nprev; p++)
@@ -636,8 +640,8 @@ public:
         sol_prev.push_back(Extract_Stored_State_Overlapped(set, state_index >= 0 ? state_index : 0));
       }
 
-      matrix_RCP J = Assemble_State_Jacobian(set, stage, sol, sol_stage, sol_prev, true, current_time, is_final_time);
-      vector_RCP rhs = solver_->linalg->getNewVector(set);
+      Teuchos::RCP<Tpetra::CrsMatrix<ScalarT, LO, GO, SolverNode>> J = Assemble_State_Jacobian(set, stage, sol, sol_stage, sol_prev, true, current_time, is_final_time);
+      Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>> rhs = solver_->linalg->getNewVector(set);
 
       const HDSA::Vector<RealT> *z_dir = &z_in;
       if (ez_in_trans != NULL)
@@ -651,15 +655,15 @@ public:
         const int tangent_index = step - static_cast<int>(p);
         if (tangent_index >= 0)
         {
-          matrix_RCP Jprev = Assemble_Previous_State_Jacobian(set, stage, sol, sol_stage, sol_prev, p, current_time, is_final_time);
-          vector_RCP du_prev_owned = Owned_State_Vector(*eu_out[tangent_index], set);
-          vector_RCP mvprod = solver_->linalg->getNewVector(set);
+          Teuchos::RCP<Tpetra::CrsMatrix<ScalarT, LO, GO, SolverNode>> Jprev = Assemble_Previous_State_Jacobian(set, stage, sol, sol_stage, sol_prev, p, current_time, is_final_time);
+          Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>> du_prev_owned = Owned_State_Vector(*eu_out[tangent_index], set);
+          Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>> mvprod = solver_->linalg->getNewVector(set);
           Jprev->apply(*du_prev_owned, *mvprod);
           rhs->update(1.0, *mvprod, 1.0);
         }
       }
 
-      vector_RCP du = solver_->linalg->getNewVector(set);
+      Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>> du = solver_->linalg->getNewVector(set);
       du->putScalar(0.0);
       solver_->linalg->linearSolver(set, J, rhs, du);
 
@@ -685,7 +689,7 @@ public:
     }
     else if (HDSA::Tpetra_Vector<RealT> *egrad_z = dynamic_cast<HDSA::Tpetra_Vector<RealT> *>(&grad_z))
     {
-      vector_RCP grad_over = solver_->linalg->getNewOverlappedParamVector();
+      Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>> grad_over = solver_->linalg->getNewOverlappedParamVector();
       grad_over->putScalar(0.0);
       Teuchos::ArrayRCP<ScalarT> grad_data = grad_over->getDataNonConst(0);
       for (size_t i = 0; i < grad_data.size(); i++)
@@ -696,7 +700,7 @@ public:
           grad_data[i] = obj_sens.fastAccessDx(deriv_index);
         }
       }
-      vector_RCP grad_owned = egrad_z->getVector();
+      Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>> grad_owned = egrad_z->getVector();
       solver_->linalg->exportParamVectorFromOverlapped(grad_owned, grad_over);
     }
     else
