@@ -40,8 +40,14 @@ namespace HDSA
 
     void Load_Data(void)
     {
-      Load_Opt_Data();
-      Load_HiFi_Data();
+      if(!is_opt_data_loaded_)
+      {
+        Load_Opt_Data();
+      }
+      if(!is_hifi_data_loaded_)
+      {
+        Load_HiFi_Data();
+      }
     }
 
     void Load_Opt_Data(void)
