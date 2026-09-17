@@ -230,6 +230,7 @@ int main(int argc, char* argv[]) {
   HDSA::Ptr<HDSA::MD_OED<RealT>> md_oed =
       HDSA::makePtr<HDSA::MD_OED<RealT>>(data_interface, u_prior_interface, z_prior_interface, hessian_analysis);
 
+  // md_oed->Use_Matrix_Free_u_Trace();
   md_oed->Offline_Computation();
 
   const int r = md_oed->Get_Reduced_Dimension();
