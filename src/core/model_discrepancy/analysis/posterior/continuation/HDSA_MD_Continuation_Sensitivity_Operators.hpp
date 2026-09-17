@@ -599,19 +599,31 @@ namespace HDSA
       HDSA::Ptr<HDSA::Vector<RealT>> z_out = z_opt_->Clone();
       opt_prob_interface_->Apply_RS_Hessian(*z_out, *z_in, *current_z_);
 
-      // NOTE: Apply_RS_Hessian corresponds to the reduced Hessian of the
-      // low-fidelity objective evaluated using S(z).  The continuation
-      // gradient, however, needs to be evaluated at the discrepancy-corrected state:
-      
+      // NOTE: Apply_RS_Hessian differentiates J(S(z), z) instead of
+      // J(S(z) + delta(z,t), z). Therefore, the low-fidelity reduced
+      // Hessian must be corrected for both changes in grad_u and J_uu.
+      HDSA::Ptr<HDSA::Vector<RealT>> u_S = current_u_->Clone();
+      opt_prob_interface_->Apply_Solution_Operator_z_Jacobian(*u_S, *z_in, *current_z_);
+
       HDSA::Ptr<HDSA::Vector<RealT>> grad_u_corrected = current_u_->Clone();
-      HDSA::Ptr<HDSA::Vector<RealT>> grad_u_low_fidelity = current_u_->Clone();
+      HDSA::Ptr<HDSA::Vector<RealT>> grad_u_lofi = current_u_->Clone();
       HDSA::Ptr<HDSA::Vector<RealT>> z_correction = z_opt_->Clone();
 
       opt_prob_interface_->Misfit_Gradient(*grad_u_corrected, *u_plus_delta, *current_z_);
-      opt_prob_interface_->Misfit_Gradient(*grad_u_low_fidelity, *current_u_, *current_z_);
-      grad_u_corrected->Scaled_Plus(static_cast<RealT>(-1.0), *grad_u_low_fidelity);
+      opt_prob_interface_->Misfit_Gradient(*grad_u_lofi, *current_u_, *current_z_);
+      grad_u_corrected->Scaled_Plus(static_cast<RealT>(-1.0), *grad_u_lofi);
       opt_prob_interface_->Apply_Solution_Operator_z_Hessian_Adjoint(*z_correction, *z_in, *grad_u_corrected, *current_z_);
       z_out->Plus(*z_correction);
+
+      HDSA::Ptr<HDSA::Vector<RealT>> x_corrected = current_u_->Clone();
+      HDSA::Ptr<HDSA::Vector<RealT>> x_lofi = current_u_->Clone();
+      opt_prob_interface_->Apply_Misfit_Hessian(*x_corrected, *u_S, *u_plus_delta, *current_z_);
+      opt_prob_interface_->Apply_Misfit_Hessian(*x_lofi, *u_S, *current_u_, *current_z_);
+      x_corrected->Scaled_Plus(static_cast<RealT>(-1.0), *x_lofi);
+
+      HDSA::Ptr<HDSA::Vector<RealT>> z_tmp0 = z_opt_->Clone();
+      opt_prob_interface_->Apply_Solution_Operator_z_Jacobian_Transpose(*z_tmp0, *x_corrected, *current_z_);
+      z_out->Plus(*z_tmp0);
 
       HDSA::Ptr<HDSA::Vector<RealT>> u_tmp = current_u_->Clone();
       current_disc_ops_->Apply_Beta_Jacobian(*u_tmp, beta_in, current_t_);
@@ -626,8 +638,7 @@ namespace HDSA
       HDSA::Ptr<HDSA::Vector<RealT>> beta_tmp2 = beta_out.Clone();
       current_disc_ops_->Apply_Beta_Jacobian_Transpose(*beta_tmp2, *u_tmp2, current_t_);
 
-      opt_prob_interface_->Apply_Solution_Operator_z_Jacobian(*u_tmp, *z_in, *current_z_);
-      opt_prob_interface_->Apply_Misfit_Hessian(*u_tmp2, *u_tmp, *u_plus_delta, *current_z_);
+      opt_prob_interface_->Apply_Misfit_Hessian(*u_tmp2, *u_S, *u_plus_delta, *current_z_);
 
       hessian_analysis_->Apply_V_Transpose(beta_out, *z_out);
       beta_out.Plus(*beta_tmp2);
