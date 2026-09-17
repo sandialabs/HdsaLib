@@ -7,6 +7,8 @@
 #ifndef HDSA_SOLVER_INTERFACE_MRHYDE_HPP
 #define HDSA_SOLVER_INTERFACE_MRHYDE_HPP
 
+#include "HDSA_Transient_Vector.hpp"
+
 template <class RealT,
           class LO = Tpetra::Map<>::local_ordinal_type,
           class GO = Tpetra::Map<>::global_ordinal_type,

@@ -1,0 +1,25 @@
+%YAML 1.1
+---
+ANONYMOUS:
+  Analysis:
+    analysis type: HDSA
+    HDSA:
+      Configuration:
+        check_solution_operator_z_jacobian: true
+        solution_operator_z_jacobian_check_step: 1.0e-5
+        solution_operator_z_jacobian_check_tolerance: 1.0e-8
+        verbosity: 1
+      HyperParameters:
+        T:
+          alpha_u: 0.25
+          beta_u: 1.0E-2
+          alpha_d: 1.0E-5
+        z:
+          alpha_z: .111111111
+          beta_z: 1.0E-3
+      DataLoadParameters:
+        OptimalSolutionExoFile: "output_lofi_opt.exo"
+        NumHifi: 2
+        HifiExoFile1: "output_hifi_1.exo"
+        HifiExoFile2: "output_hifi_2.exo"
+...
