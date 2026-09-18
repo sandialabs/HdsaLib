@@ -49,8 +49,10 @@ public:
     const Sparse_Matrix_Solver_Trilinos<ScalarType>* sparse_solver_;
 
   public:
-    Sparse_Matrix_Operator(const Sparse_Matrix_Solver_Trilinos<ScalarType>* sparse_solver)
-        : sparse_solver_(sparse_solver) {}
+    Sparse_Matrix_Operator(const Sparse_Matrix_Solver_Trilinos<ScalarType>* sparse_solver) : sparse_solver_(sparse_solver) 
+    {
+      HDSA::Linear_Operator<ScalarType>::Set_Symmetric();
+    }
 
     ~Sparse_Matrix_Operator() {}
 
