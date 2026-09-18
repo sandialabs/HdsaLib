@@ -20,6 +20,7 @@
 #include "HDSA_Linear_Algebra.hpp"
 #include "HDSA_MultiVector.hpp"
 #include "HDSA_Ptr.hpp"
+#include "HDSA_Random_Number_Generator.hpp"
 #include "HDSA_Stack_Trace.hpp"
 #include "HDSA_Vector.hpp"
 
@@ -44,15 +45,17 @@ public:
     HDSA::Ptr<HDSA::Dense_Matrix<RealT>> Vt_Mz_V;
     HDSA::Ptr<HDSA::Dense_Matrix<RealT>> Vt_Mz_Wz_inv_Mz_V;
     HDSA::Ptr<HDSA::Dense_Matrix<RealT>> lambda;
+    HDSA::Ptr<HDSA::MultiVector<RealT>> u_trace_probes;
 
     Offline_Data()
         : r(0), V(HDSA::nullPtr), Mz_V(HDSA::nullPtr), Wz_inv_Mz_V(HDSA::nullPtr), Mz_Wz_inv_Mz_V(HDSA::nullPtr),
-          Vt_Mz_V(HDSA::nullPtr), Vt_Mz_Wz_inv_Mz_V(HDSA::nullPtr), lambda(HDSA::nullPtr) {}
+          Vt_Mz_V(HDSA::nullPtr), Vt_Mz_Wz_inv_Mz_V(HDSA::nullPtr), lambda(HDSA::nullPtr),
+          u_trace_probes(HDSA::nullPtr) {}
 
     bool Is_Initialized() const {
       return r > 0 && V != HDSA::nullPtr && Mz_V != HDSA::nullPtr && Wz_inv_Mz_V != HDSA::nullPtr &&
              Mz_Wz_inv_Mz_V != HDSA::nullPtr && Vt_Mz_V != HDSA::nullPtr && Vt_Mz_Wz_inv_Mz_V != HDSA::nullPtr &&
-             lambda != HDSA::nullPtr;
+             (lambda != HDSA::nullPtr || u_trace_probes != HDSA::nullPtr);
     }
   };
 
@@ -79,6 +82,9 @@ private:
 
   bool verbosity_;
   RealT covar_coeff_;
+  bool use_matrix_free_u_trace_;
+  int u_trace_num_probes_;
+  mutable HDSA::Ptr<HDSA::Random_Number_Generator<RealT>> random_number_generator_;
 
   struct G_Eigs_Data {
     HDSA::Ptr<HDSA::Dense_Matrix<RealT>> M;
@@ -179,15 +185,98 @@ private:
     return data;
   }
 
-  RealT Compute_Trace_Term(const RealT mu_i, const RealT alpha_d) const {
+  HDSA::Ptr<HDSA::Vector<RealT>> Apply_A_mu_Inverse(const HDSA::Vector<RealT>& u_in, const RealT mu,
+                                                    const RealT alpha_d) const {
+    HDSA::Ptr<HDSA::Vector<RealT>> u_out = u_in.Clone();
+    u_out->Zeros();
+    u_prior_interface_->Apply_W_u_Plus_scalar_M_u_Inverse(*u_out, u_in, mu / alpha_d);
+    u_out->Scale(static_cast<RealT>(1) / alpha_d);
+    return u_out;
+  }
+
+  HDSA::Ptr<HDSA::Vector<RealT>> Apply_B_mu(const HDSA::Vector<RealT>& u_in, const RealT mu,
+                                            const RealT alpha_d) const {
+    HDSA::Ptr<HDSA::Vector<RealT>> q = Apply_A_mu_Inverse(u_in, mu, alpha_d);
+    HDSA::Ptr<HDSA::Vector<RealT>> M_q = u_in.Clone();
+    HDSA::Ptr<HDSA::Vector<RealT>> W_inv_M_q = u_in.Clone();
+    HDSA::Ptr<HDSA::Vector<RealT>> u_out = u_in.Clone();
+    u_prior_interface_->Apply_M_u(*M_q, *q);
+    u_prior_interface_->Apply_W_u_Inverse(*W_inv_M_q, *M_q);
+    u_prior_interface_->Apply_M_u(*u_out, *W_inv_M_q);
+    return u_out;
+  }
+
+  HDSA::Ptr<HDSA::Vector<RealT>> Apply_C_mu(const HDSA::Vector<RealT>& u_in, const RealT mu,
+                                            const RealT alpha_d) const {
+    HDSA::Ptr<HDSA::Vector<RealT>> q1 = Apply_A_mu_Inverse(u_in, mu, alpha_d);
+    HDSA::Ptr<HDSA::Vector<RealT>> M_q1 = u_in.Clone();
+    u_prior_interface_->Apply_M_u(*M_q1, *q1);
+    HDSA::Ptr<HDSA::Vector<RealT>> q2 = Apply_A_mu_Inverse(*M_q1, mu, alpha_d);
+    HDSA::Ptr<HDSA::Vector<RealT>> M_q2 = u_in.Clone();
+    HDSA::Ptr<HDSA::Vector<RealT>> W_inv_M_q2 = u_in.Clone();
+    HDSA::Ptr<HDSA::Vector<RealT>> u_out = u_in.Clone();
+    u_prior_interface_->Apply_M_u(*M_q2, *q2);
+    u_prior_interface_->Apply_W_u_Inverse(*W_inv_M_q2, *M_q2);
+    u_prior_interface_->Apply_M_u(*u_out, *W_inv_M_q2);
+    return u_out;
+  }
+
+  HDSA::Ptr<HDSA::MultiVector<RealT>> Generate_u_Trace_Probes() const {
+    const HDSA::Ptr<const HDSA::Vector<RealT>> u_opt = data_interface_->Get_u_opt();
+    HDSA::Ptr<HDSA::MultiVector<RealT>> probes = HDSA::makePtr<HDSA::MultiVector<RealT>>(u_trace_num_probes_, *u_opt);
+
+    for (int k = 0; k < u_trace_num_probes_; ++k) {
+      HDSA::Ptr<HDSA::Vector<RealT>> probe_k = (*probes)[k];
+      const int dim = probe_k->Dimension();
+      for (int i = 0; i < dim; ++i) {
+        const RealT sample = random_number_generator_->Generate_Standard_Normal_Sample();
+        probe_k->Set_Entry(i, sample < static_cast<RealT>(0) ? static_cast<RealT>(-1) : static_cast<RealT>(1));
+      }
+    }
+    return probes;
+  }
+
+  void Evaluate_u_Trace(const RealT mu_i, const RealT alpha_d, RealT& tau, RealT& tau_deriv) const {
+    tau = static_cast<RealT>(0);
+    tau_deriv = static_cast<RealT>(0);
+
+    if (use_matrix_free_u_trace_) {
+      HDSA_TEST_FOR_EXCEPTION(offline_data_.u_trace_probes == HDSA::nullPtr, std::logic_error,
+                              "Error in HDSA::MD_OED::Evaluate_u_Trace: "
+                              "Matrix-free u-trace probes are not available."
+                                  << std::endl);
+
+      const int num_probes = offline_data_.u_trace_probes->Number_of_Vectors();
+      HDSA_TEST_FOR_EXCEPTION(num_probes <= 0, std::logic_error,
+                              "Error in HDSA::MD_OED::Evaluate_u_Trace: "
+                              "Number of matrix-free u-trace probes must be positive."
+                                  << std::endl);
+
+      for (int k = 0; k < num_probes; ++k) {
+        const HDSA::Vector<RealT>& omega_k = *(*offline_data_.u_trace_probes)[k];
+        HDSA::Ptr<HDSA::Vector<RealT>> B_omega_k = Apply_B_mu(omega_k, mu_i, alpha_d);
+        HDSA::Ptr<HDSA::Vector<RealT>> C_omega_k = Apply_C_mu(omega_k, mu_i, alpha_d);
+        tau += omega_k.Dot(*B_omega_k);
+        tau_deriv -= omega_k.Dot(*C_omega_k);
+      }
+
+      tau /= static_cast<RealT>(num_probes);
+      tau_deriv /= static_cast<RealT>(num_probes);
+      return;
+    }
+
+    HDSA_TEST_FOR_EXCEPTION(offline_data_.lambda == HDSA::nullPtr, std::logic_error,
+                            "Error in HDSA::MD_OED::Evaluate_u_Trace: "
+                            "u-prior generalized eigenvalues are not available."
+                                << std::endl);
+
     const int lambda_len = DV::Length(*offline_data_.lambda);
-    RealT trace_term = static_cast<RealT>(0);
     for (int j = 0; j < lambda_len; ++j) {
       const RealT lambda_j = DV::Get_Column_Major(*offline_data_.lambda, j);
-      const RealT denom = lambda_j * (mu_i + alpha_d * lambda_j);
-      trace_term += static_cast<RealT>(1) / denom;
+      const RealT denom = mu_i + alpha_d * lambda_j;
+      tau += static_cast<RealT>(1) / (lambda_j * denom);
+      tau_deriv -= static_cast<RealT>(1) / (lambda_j * denom * denom);
     }
-    return trace_term;
   }
 
 public:
@@ -196,12 +285,22 @@ public:
          const HDSA::Ptr<HDSA::MD_z_Prior_Interface<RealT>>& z_prior_interface,
          const HDSA::Ptr<HDSA::MD_Hessian_Analysis<RealT>>& hessian_analysis)
       : data_interface_(data_interface), u_prior_interface_(u_prior_interface), z_prior_interface_(z_prior_interface),
-        hessian_analysis_(hessian_analysis), offline_data_(), verbosity_(false), covar_coeff_(static_cast<RealT>(1)) {}
+        hessian_analysis_(hessian_analysis), offline_data_(), verbosity_(false), covar_coeff_(static_cast<RealT>(1)),
+        use_matrix_free_u_trace_(false), u_trace_num_probes_(32),
+        random_number_generator_(HDSA::makePtr<HDSA::Random_Number_Generator<RealT>>()) {}
 
   virtual ~MD_OED() {}
 
   void Set_Covariance_Coefficient(const RealT& covar_coeff) { covar_coeff_ = covar_coeff; }
   RealT Get_Covariance_Coefficient() const { return covar_coeff_; }
+  void Use_Matrix_Free_u_Trace(const int num_probes = 32) {
+    HDSA_TEST_FOR_EXCEPTION(num_probes <= 0, std::logic_error,
+                            "Error in HDSA::MD_OED::Use_Matrix_Free_u_Trace: "
+                            "num_probes must be positive."
+                                << std::endl);
+    use_matrix_free_u_trace_ = true;
+    u_trace_num_probes_ = num_probes;
+  }
 
   void Set_Verbosity(const bool verbosity) { verbosity_ = verbosity; }
   bool Get_Verbosity() const { return verbosity_; }
@@ -294,7 +393,14 @@ public:
     offline_data_.Vt_Mz_Wz_inv_Mz_V = offline_data_.Wz_inv_Mz_V->MatMat(*offline_data_.Mz_V);
     Symmetrize(*offline_data_.Vt_Mz_Wz_inv_Mz_V);
 
-    offline_data_.lambda = u_prior_interface_->Get_W_u_Generalized_Eigenvalues();
+    if (!use_matrix_free_u_trace_) {
+      offline_data_.lambda = u_prior_interface_->Get_W_u_Generalized_Eigenvalues();
+      if (offline_data_.lambda == HDSA::nullPtr) {
+        Use_Matrix_Free_u_Trace();
+      }
+    }
+
+    if (use_matrix_free_u_trace_) { offline_data_.u_trace_probes = Generate_u_Trace_Probes(); }
   }
 
   RealT Evaluate_Posterior_Cov_Trace(const HDSA::Dense_Matrix<RealT>& beta, const RealT& alpha_d,
@@ -326,7 +432,6 @@ public:
 
     const RealT max_abs_mu = DV::Max_Abs(*geigs.mu);
     const RealT mu_tol = static_cast<RealT>(1e-12) * std::max(static_cast<RealT>(1), max_abs_mu);
-    const int lambda_len = DV::Length(*offline_data_.lambda);
 
     RealT val = static_cast<RealT>(0);
 
@@ -334,13 +439,7 @@ public:
       const RealT mu_i = (*geigs.mu)(eig_idx, 0);
       RealT trace_term = static_cast<RealT>(0);
       RealT d_trace_d_mu = static_cast<RealT>(0);
-
-      for (int j = 0; j < lambda_len; ++j) {
-        const RealT lambda_j = DV::Get_Column_Major(*offline_data_.lambda, j);
-        const RealT denom = mu_i + alpha_d * lambda_j;
-        trace_term += static_cast<RealT>(1) / (lambda_j * denom);
-        d_trace_d_mu -= static_cast<RealT>(1) / (lambda_j * denom * denom);
-      }
+      Evaluate_u_Trace(mu_i, alpha_d, trace_term, d_trace_d_mu);
 
       HDSA::Ptr<HDSA::Vector<RealT>> tmp =
           Linear_Combination_MultiVector(*offline_data_.Mz_Wz_inv_Mz_V, *geigs.Mg, eig_idx);

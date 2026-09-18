@@ -59,7 +59,7 @@ ANONYMOUS:
               Upper Bound on Path Length: 1.0
         Trust Region:
           Subproblem Solver: Truncated CG
-          Initial Radius: 1.0e+3
+          Initial Radius: 0.1
           Maximum Radius: 5.0e+18
           Step Acceptance Threshold: 5.0e-02
           Radius Shrinking Threshold: 5.0e-02

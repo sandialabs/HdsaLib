@@ -7,6 +7,8 @@
 #ifndef HDSA_MD_U_PRIOR_INTERFACE_HPP
 #define HDSA_MD_U_PRIOR_INTERFACE_HPP
 
+#include <iostream>
+
 namespace HDSA
 {
 
@@ -55,10 +57,7 @@ namespace HDSA
     // Compute offline OED quantities
     virtual HDSA::Ptr<HDSA::Dense_Matrix<RealT>> Get_W_u_Generalized_Eigenvalues() const
     {
-      HDSA_TEST_FOR_EXCEPTION(true, std::logic_error,
-                              "Error in HDSA::MD_u_Prior_Interface::Get_W_u_Generalized_Eigenvalues: "
-                              "Method must be implemented to use OED algorithms." << std::endl);
-
+      std::cout << "MD_u_Prior_Interface::Get_W_u_Generalized_Eigenvalues must be implemented to use eigenvalue-based OED algorithms" << std::endl;
       return HDSA::nullPtr;
     }
 
