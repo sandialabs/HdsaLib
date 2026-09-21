@@ -29,6 +29,7 @@ template <class RealT> class MD_Lumped_Mass_u_Prior_Interface : public HDSA::MD_
     const HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> M_;
     const HDSA::Ptr<HDSA::MD_Data_Interface<RealT>> data_interface_;
     const HDSA::Ptr<HDSA::MD_u_Hyperparameter_Interface<RealT>> u_hyperparam_interface_;
+    const HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> D_;
     bool use_direct_solvers_;
     int verbosity_;
     bool use_incomplete_prec_;
@@ -195,10 +196,10 @@ template <class RealT> class MD_Lumped_Mass_u_Prior_Interface : public HDSA::MD_
     }
 
     MD_Lumped_Mass_u_Prior_Interface(const HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> &S, const HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> &M, const HDSA::Ptr<HDSA::MD_Data_Interface<RealT>> &data_interface,
-                                     const HDSA::Ptr<HDSA::MD_u_Hyperparameter_Interface<RealT>> &u_hyperparam_interface, const bool use_direct_solvers = false, const int verbosity = 0,
+                                     const HDSA::Ptr<HDSA::MD_u_Hyperparameter_Interface<RealT>> &u_hyperparam_interface, const HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> &D = HDSA::nullPtr, const bool use_direct_solvers = false, const int verbosity = 0,
                                      const bool use_incomplete_prec = true, std::ostream &out_stream = std::cout)
         : HDSA::MD_Scaled_u_Prior_Interface<RealT>(u_hyperparam_interface->Get_alpha_u()), S_(S), M_(M), data_interface_(data_interface), u_hyperparam_interface_(u_hyperparam_interface),
-          use_direct_solvers_(use_direct_solvers), verbosity_(verbosity), use_incomplete_prec_(use_incomplete_prec), out_stream_(out_stream)
+          D_(D), use_direct_solvers_(use_direct_solvers), verbosity_(verbosity), use_incomplete_prec_(use_incomplete_prec), out_stream_(out_stream)
     {
         timer_ = HDSA::makePtr<HDSA::Timer<RealT>>(out_stream_);
         if (HDSA::Ptr<const HDSA::Transient_Vector<RealT>> u_opt_trans = HDSA::dynamicPtrCast<const HDSA::Transient_Vector<RealT>>(data_interface_->Get_u_opt()))
@@ -246,6 +247,10 @@ template <class RealT> class MD_Lumped_Mass_u_Prior_Interface : public HDSA::MD_
         beta_u_ = beta_u_new;
         E_u_->Set(*M_);
         E_u_->Scaled_Plus(beta_u_new, *S_);
+        if(D_ != HDSA::nullPtr)
+        {
+            E_u_->Scaled_Plus(1.0, *D_);
+        }
 
         E_u_->Set_Symmetric();
         std::string A_solver_message = "E_u_Inverse";

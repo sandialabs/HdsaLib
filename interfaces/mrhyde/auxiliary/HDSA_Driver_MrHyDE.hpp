@@ -7,6 +7,11 @@
 #ifndef HDSA_DRIVER_MRHYDE_HPP
 #define HDSA_DRIVER_MRHYDE_HPP
 
+#include "HDSA_Ptr.hpp"
+#include "HDSA_Random_Number_Generator.hpp"
+#include "HDSA_Sparse_Matrix.hpp"
+#include "HDSA_Sparse_Matrix_Trilinos.hpp"
+#include "HDSA_Stream.hpp"
 #include "HDSA_Vector.hpp"
 #include "HDSA_BF_Sol_Op_Interface_MrHyDE.hpp"
 #include "HDSA_BF_Update.hpp"
@@ -36,11 +41,6 @@
 #include "HDSA_MD_z_Prior_Interface.hpp"
 #include "HDSA_Output_Writer_MrHyDE.hpp"
 #include "HDSA_Prior_Operators_Interface_MrHyDE.hpp"
-#include "HDSA_Ptr.hpp"
-#include "HDSA_Random_Number_Generator.hpp"
-#include "HDSA_Sparse_Matrix.hpp"
-#include "HDSA_Sparse_Matrix_Trilinos.hpp"
-#include "HDSA_Stream.hpp"
 #include <algorithm>
 #include <cmath>
 #include <iostream>
@@ -80,7 +80,7 @@ template <class RealT, class LO = Tpetra::Map<>::local_ordinal_type, class GO = 
         bool check_solution_operator_z_jacobian = HDSAsettings.sublist("Configuration").get<bool>("check_solution_operator_z_jacobian", false);
         if (check_solution_operator_z_jacobian)
         {
-          Solution_Operator_z_Jacobian_Finite_Difference_Check(HDSAsettings);
+            Solution_Operator_z_Jacobian_Finite_Difference_Check(HDSAsettings);
         }
         else if (do_bifidelity_correction)
         {
@@ -220,6 +220,11 @@ template <class RealT, class LO = Tpetra::Map<>::local_ordinal_type, class GO = 
         std::vector<RealT> beta_u = std::vector<RealT>(num_states, 0.0);
         std::vector<RealT> beta_t = std::vector<RealT>(num_states, 0.0);
         std::vector<RealT> alpha_d = std::vector<RealT>(num_states, 0.0);
+
+        std::vector<std::vector<std::string>> prior_dirichlet_names;
+        prior_dirichlet_names.resize(num_states);
+        std::vector<RealT> prior_dirichlet_penalty = std::vector<RealT>(num_states, 0.0);
+        
         std::vector<int> prior_num_sing_vals = std::vector<int>(num_states, 0);
         std::vector<int> prior_oversampling = std::vector<int>(num_states, 0);
         std::vector<int> prior_num_subspace_iter = std::vector<int>(num_states, 0);
@@ -230,6 +235,11 @@ template <class RealT, class LO = Tpetra::Map<>::local_ordinal_type, class GO = 
             beta_u[k] = HDSAsettings.sublist("HyperParameters").sublist(state_var_name).get<RealT>("beta_u", 0.0);
             beta_t[k] = HDSAsettings.sublist("HyperParameters").sublist(state_var_name).get<RealT>("beta_t", 0.0);
             alpha_d[k] = HDSAsettings.sublist("HyperParameters").sublist(state_var_name).get<RealT>("alpha_d", 0.0);
+
+            std::string side_names = HDSAsettings.sublist("HyperParameters").sublist(state_var_name).get<std::string>("dirichlet_sides", "");
+            prior_dirichlet_names[k] = Split_Comma_Separated(side_names);
+            prior_dirichlet_penalty[k] = HDSAsettings.sublist("HyperParameters").sublist(state_var_name).get<RealT>("dirichlet_penalty", 0.0);
+
             prior_num_sing_vals[k] = HDSAsettings.sublist("HyperParameters").sublist(state_var_name).get<int>("prior_num_sing_vals", 200);
             prior_oversampling[k] = HDSAsettings.sublist("HyperParameters").sublist(state_var_name).get<int>("prior_oversampling", 20);
             prior_num_subspace_iter[k] = HDSAsettings.sublist("HyperParameters").sublist(state_var_name).get<int>("prior_num_subspace_iter", 1);
@@ -388,6 +398,21 @@ template <class RealT, class LO = Tpetra::Map<>::local_ordinal_type, class GO = 
         bool is_transient = solver_->isTransient;
         for (int k = 0; k < num_states; k++)
         {
+            HDSA::Ptr<HDSA::Vector<RealT>> dirichlet_vec;
+            if(is_transient)
+            {
+                HDSA::Ptr<const HDSA::Transient_Vector<RealT>> u_opt_trans = HDSA::dynamicPtrCast<const HDSA::Transient_Vector<RealT>>(data_interface->Get_u_opt());
+                dirichlet_vec = data_interface->Extract_State_Component(*(*u_opt_trans)[0],k)->Clone();
+            } 
+            else
+            {
+                dirichlet_vec = data_interface->Extract_State_Component(*data_interface->Get_u_opt(),k)->Clone();
+            }
+            prior_operator_interface->Instantiate_Prior_Dirichlet_Operator(solver_, dirichlet_vec, prior_dirichlet_names[k]);
+            dirichlet_vec->Scale(prior_dirichlet_penalty[k]);
+            HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> D = M->Clone(1);
+            D->Set_Diagonal(*dirichlet_vec, false);
+
             u_hyperparam_interface_std[k] = HDSA::makePtr<MD_u_Hyperparameter_Interface_MrHyDE<RealT>>(comm_, data_interface, is_transient, center_data, adapt_time_variance, k);
             u_hyperparam_interface_std[k]->Set_alpha_d(alpha_d[k]);
             u_hyperparam_interface_std[k]->Set_alpha_u(alpha_u[k]);
@@ -411,17 +436,17 @@ template <class RealT, class LO = Tpetra::Map<>::local_ordinal_type, class GO = 
                     HDSA::Ptr<HDSA::MD_OUU_Hyperparameter_Data_Interface<RealT>> data_interface_hyperparam = HDSA::makePtr<HDSA::MD_OUU_Hyperparameter_Data_Interface<RealT>>(ouu_data_interface);
                     if (prior_computation == "Lumped_Mass")
                     {
-                        spatial_u_prior_interface_k = HDSA::makePtr<HDSA::MD_Lumped_Mass_u_Prior_Interface<RealT>>(S, M, data_interface_hyperparam, u_hyperparam_interface_std[k], use_direct_solvers, hdsa_verbosity,
+                        spatial_u_prior_interface_k = HDSA::makePtr<HDSA::MD_Lumped_Mass_u_Prior_Interface<RealT>>(S, M, data_interface_hyperparam, u_hyperparam_interface_std[k], D, use_direct_solvers, hdsa_verbosity,
                                                                                                                    use_incomplete_prec, *outStream);
                     }
                     else if (prior_computation == "Bilaplacian")
                     {
-                        spatial_u_prior_interface_k = HDSA::makePtr<HDSA::MD_Bilaplacian_u_Prior_Interface<RealT>>(S, M, data_interface_hyperparam, u_hyperparam_interface_std[k], use_direct_solvers, hdsa_verbosity,
+                        spatial_u_prior_interface_k = HDSA::makePtr<HDSA::MD_Bilaplacian_u_Prior_Interface<RealT>>(S, M, data_interface_hyperparam, u_hyperparam_interface_std[k], D, use_direct_solvers, hdsa_verbosity,
                                                                                                                    use_incomplete_prec, *outStream);
                     }
                     else
                     {
-                        spatial_u_prior_interface_k = HDSA::makePtr<HDSA::MD_Numeric_Laplacian_u_Prior_Interface<RealT>>(S, M, data_interface_hyperparam, u_hyperparam_interface_std[k], random_number_generator);
+                        spatial_u_prior_interface_k = HDSA::makePtr<HDSA::MD_Numeric_Laplacian_u_Prior_Interface<RealT>>(S, M, data_interface_hyperparam, u_hyperparam_interface_std[k], random_number_generator, D);
                     }
                     int n_y = data_interface_hyperparam->Get_u_opt()->Dimension() / n_t;
                     transient_prior_cov_k = HDSA::makePtr<HDSA::MD_Transient_Prior_Covariance<RealT>>(data_interface_hyperparam, u_hyperparam_interface_std[k], T, n_t, n_y);
@@ -432,16 +457,16 @@ template <class RealT, class LO = Tpetra::Map<>::local_ordinal_type, class GO = 
                     if (prior_computation == "Lumped_Mass")
                     {
                         spatial_u_prior_interface_k =
-                            HDSA::makePtr<HDSA::MD_Lumped_Mass_u_Prior_Interface<RealT>>(S, M, data_interface, u_hyperparam_interface_std[k], use_direct_solvers, hdsa_verbosity, use_incomplete_prec, *outStream);
+                            HDSA::makePtr<HDSA::MD_Lumped_Mass_u_Prior_Interface<RealT>>(S, M, data_interface, u_hyperparam_interface_std[k], D, use_direct_solvers, hdsa_verbosity, use_incomplete_prec, *outStream);
                     }
                     if (prior_computation == "Bilaplacian")
                     {
                         spatial_u_prior_interface_k =
-                            HDSA::makePtr<HDSA::MD_Bilaplacian_u_Prior_Interface<RealT>>(S, M, data_interface, u_hyperparam_interface_std[k], use_direct_solvers, hdsa_verbosity, use_incomplete_prec, *outStream);
+                            HDSA::makePtr<HDSA::MD_Bilaplacian_u_Prior_Interface<RealT>>(S, M, data_interface, u_hyperparam_interface_std[k], D, use_direct_solvers, hdsa_verbosity, use_incomplete_prec, *outStream);
                     }
                     else
                     {
-                        spatial_u_prior_interface_k = HDSA::makePtr<HDSA::MD_Numeric_Laplacian_u_Prior_Interface<RealT>>(S, M, data_interface, u_hyperparam_interface_std[k], random_number_generator);
+                        spatial_u_prior_interface_k = HDSA::makePtr<HDSA::MD_Numeric_Laplacian_u_Prior_Interface<RealT>>(S, M, data_interface, u_hyperparam_interface_std[k], random_number_generator, D);
                     }
                     transient_prior_cov_k = HDSA::makePtr<HDSA::MD_Transient_Prior_Covariance<RealT>>(data_interface, u_hyperparam_interface_std[k], T, n_t, n_y);
                 }
@@ -456,17 +481,17 @@ template <class RealT, class LO = Tpetra::Map<>::local_ordinal_type, class GO = 
                     HDSA::Ptr<HDSA::MD_OUU_Hyperparameter_Data_Interface<RealT>> data_interface_hyperparam = HDSA::makePtr<HDSA::MD_OUU_Hyperparameter_Data_Interface<RealT>>(ouu_data_interface);
                     if (prior_computation == "Lumped_Mass")
                     {
-                        u_prior_interface_std[k] = HDSA::makePtr<HDSA::MD_Lumped_Mass_u_Prior_Interface<RealT>>(S, M, data_interface_hyperparam, u_hyperparam_interface_std[k], use_direct_solvers, hdsa_verbosity,
+                        u_prior_interface_std[k] = HDSA::makePtr<HDSA::MD_Lumped_Mass_u_Prior_Interface<RealT>>(S, M, data_interface_hyperparam, u_hyperparam_interface_std[k], D, use_direct_solvers, hdsa_verbosity,
                                                                                                                 use_incomplete_prec, *outStream);
                     }
                     else if (prior_computation == "Bilaplacian")
                     {
-                        u_prior_interface_std[k] = HDSA::makePtr<HDSA::MD_Bilaplacian_u_Prior_Interface<RealT>>(S, M, data_interface_hyperparam, u_hyperparam_interface_std[k], use_direct_solvers, hdsa_verbosity,
+                        u_prior_interface_std[k] = HDSA::makePtr<HDSA::MD_Bilaplacian_u_Prior_Interface<RealT>>(S, M, data_interface_hyperparam, u_hyperparam_interface_std[k], D, use_direct_solvers, hdsa_verbosity,
                                                                                                                 use_incomplete_prec, *outStream);
                     }
                     else
                     {
-                        u_prior_interface_std[k] = HDSA::makePtr<HDSA::MD_Numeric_Laplacian_u_Prior_Interface<RealT>>(S, M, data_interface_hyperparam, u_hyperparam_interface_std[k], random_number_generator);
+                        u_prior_interface_std[k] = HDSA::makePtr<HDSA::MD_Numeric_Laplacian_u_Prior_Interface<RealT>>(S, M, data_interface_hyperparam, u_hyperparam_interface_std[k], random_number_generator, D);
                     }
                 }
                 else
@@ -474,16 +499,16 @@ template <class RealT, class LO = Tpetra::Map<>::local_ordinal_type, class GO = 
                     if (prior_computation == "Lumped_Mass")
                     {
                         u_prior_interface_std[k] =
-                            HDSA::makePtr<HDSA::MD_Lumped_Mass_u_Prior_Interface<RealT>>(S, M, data_interface, u_hyperparam_interface_std[k], use_direct_solvers, hdsa_verbosity, use_incomplete_prec, *outStream);
+                            HDSA::makePtr<HDSA::MD_Lumped_Mass_u_Prior_Interface<RealT>>(S, M, data_interface, u_hyperparam_interface_std[k], D, use_direct_solvers, hdsa_verbosity, use_incomplete_prec, *outStream);
                     }
                     else if (prior_computation == "Bilaplacian")
                     {
                         u_prior_interface_std[k] =
-                            HDSA::makePtr<HDSA::MD_Bilaplacian_u_Prior_Interface<RealT>>(S, M, data_interface, u_hyperparam_interface_std[k], use_direct_solvers, hdsa_verbosity, use_incomplete_prec, *outStream);
+                            HDSA::makePtr<HDSA::MD_Bilaplacian_u_Prior_Interface<RealT>>(S, M, data_interface, u_hyperparam_interface_std[k], D, use_direct_solvers, hdsa_verbosity, use_incomplete_prec, *outStream);
                     }
                     else
                     {
-                        u_prior_interface_std[k] = HDSA::makePtr<HDSA::MD_Numeric_Laplacian_u_Prior_Interface<RealT>>(S, M, data_interface, u_hyperparam_interface_std[k], random_number_generator);
+                        u_prior_interface_std[k] = HDSA::makePtr<HDSA::MD_Numeric_Laplacian_u_Prior_Interface<RealT>>(S, M, data_interface, u_hyperparam_interface_std[k], random_number_generator, D);
                     }
                 }
             }
@@ -715,7 +740,7 @@ template <class RealT, class LO = Tpetra::Map<>::local_ordinal_type, class GO = 
         }
     }
 
-    bool Solution_Operator_z_Jacobian_Finite_Difference_Check(Teuchos::ParameterList &HDSAsettings) 
+    bool Solution_Operator_z_Jacobian_Finite_Difference_Check(Teuchos::ParameterList &HDSAsettings)
     {
         postproc_->write_solution = false;
         postproc_->write_optimization_solution = false;
@@ -791,6 +816,36 @@ template <class RealT, class LO = Tpetra::Map<>::local_ordinal_type, class GO = 
             *outStream << "  tolerance      = " << tolerance << std::endl;
         }
         return passed;
+    }
+
+    std::vector<std::string> Split_Comma_Separated(const std::string &input)
+    {
+        std::vector<std::string> result;
+        std::stringstream ss(input);
+        std::string item;
+
+        while (std::getline(ss, item, ','))
+        {
+            result.push_back(trim(item));
+        }
+        return result;
+    }
+
+    std::string trim(const std::string &s)
+    {
+        std::size_t start = 0;
+        while (start < s.size() && std::isspace(static_cast<unsigned char>(s[start])))
+        {
+            ++start;
+        }
+
+        std::size_t end = s.size();
+        while (end > start && std::isspace(static_cast<unsigned char>(s[end - 1])))
+        {
+            --end;
+        }
+
+        return s.substr(start, end - start);
     }
 };
 #endif

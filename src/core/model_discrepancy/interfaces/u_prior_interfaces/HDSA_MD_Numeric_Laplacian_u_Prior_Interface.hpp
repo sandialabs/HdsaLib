@@ -25,6 +25,7 @@ template <class RealT> class MD_Numeric_Laplacian_u_Prior_Interface : public HDS
     const HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> M_;
     const HDSA::Ptr<HDSA::MD_Data_Interface<RealT>> data_interface_;
     const HDSA::Ptr<HDSA::MD_u_Hyperparameter_Interface<RealT>> u_hyperparam_interface_;
+    const HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> D_;
     bool use_direct_solvers_;
     int verbosity_;
     std::ostream &out_stream_;
@@ -50,28 +51,28 @@ template <class RealT> class MD_Numeric_Laplacian_u_Prior_Interface : public HDS
     }
 
     MD_Numeric_Laplacian_u_Prior_Interface(const HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> &S, const HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> &M, const HDSA::Ptr<HDSA::MD_Data_Interface<RealT>> &data_interface,
-                                           const HDSA::Ptr<HDSA::MD_u_Hyperparameter_Interface<RealT>> &u_hyperparam_interface, const bool use_direct_solvers = true, const int verbosity = 0,
+                                           const HDSA::Ptr<HDSA::MD_u_Hyperparameter_Interface<RealT>> &u_hyperparam_interface, const HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> &D = HDSA::nullPtr, const bool use_direct_solvers = true, const int verbosity = 0,
                                            std::ostream &out_stream = std::cout)
         : HDSA::MD_Elliptic_u_Prior_Interface<RealT>(u_hyperparam_interface->Get_alpha_u()), S_(S), M_(M), data_interface_(data_interface), u_hyperparam_interface_(u_hyperparam_interface),
-          use_direct_solvers_(use_direct_solvers), verbosity_(verbosity), out_stream_(out_stream)
+          D_(D), use_direct_solvers_(use_direct_solvers), verbosity_(verbosity), out_stream_(out_stream)
     {
         Auxillary_Constructor();
     }
 
     MD_Numeric_Laplacian_u_Prior_Interface(const HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> &S, const HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> &M, const HDSA::Ptr<HDSA::MD_Data_Interface<RealT>> &data_interface,
-                                           const HDSA::Ptr<HDSA::MD_u_Hyperparameter_Interface<RealT>> &u_hyperparam_interface, int seed, const bool use_direct_solvers = true, const int verbosity = 0,
+                                           const HDSA::Ptr<HDSA::MD_u_Hyperparameter_Interface<RealT>> &u_hyperparam_interface, int seed, const HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> &D = HDSA::nullPtr, const bool use_direct_solvers = true, const int verbosity = 0,
                                            std::ostream &out_stream = std::cout)
         : HDSA::MD_Elliptic_u_Prior_Interface<RealT>(u_hyperparam_interface->Get_alpha_u(), seed), S_(S), M_(M), data_interface_(data_interface), u_hyperparam_interface_(u_hyperparam_interface),
-          use_direct_solvers_(use_direct_solvers), verbosity_(verbosity), out_stream_(out_stream)
+          D_(D), use_direct_solvers_(use_direct_solvers), verbosity_(verbosity), out_stream_(out_stream)
     {
         Auxillary_Constructor();
     }
 
     MD_Numeric_Laplacian_u_Prior_Interface(const HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> &S, const HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> &M, const HDSA::Ptr<HDSA::MD_Data_Interface<RealT>> &data_interface,
                                            const HDSA::Ptr<HDSA::MD_u_Hyperparameter_Interface<RealT>> &u_hyperparam_interface, const HDSA::Ptr<HDSA::Random_Number_Generator<RealT>> &random_number_generator,
-                                           const bool use_direct_solvers = true, const int verbosity = 0, std::ostream &out_stream = std::cout)
+                                           const HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> &D = HDSA::nullPtr, const bool use_direct_solvers = true, const int verbosity = 0, std::ostream &out_stream = std::cout)
         : HDSA::MD_Elliptic_u_Prior_Interface<RealT>(u_hyperparam_interface->Get_alpha_u(), random_number_generator), S_(S), M_(M), data_interface_(data_interface), u_hyperparam_interface_(u_hyperparam_interface),
-          use_direct_solvers_(use_direct_solvers), verbosity_(verbosity), out_stream_(out_stream)
+          D_(D), use_direct_solvers_(use_direct_solvers), verbosity_(verbosity), out_stream_(out_stream)
     {
         Auxillary_Constructor();
     }
@@ -126,6 +127,10 @@ template <class RealT> class MD_Numeric_Laplacian_u_Prior_Interface : public HDS
     {
         E_u_->Set(*M_);
         E_u_->Scaled_Plus(beta_u_new, *S_);
+        if(D_ != HDSA::nullPtr)
+        {
+            E_u_->Scaled_Plus(1.0,*D_);
+        }
         beta_u_ = beta_u_new;
         std::string E_u_solver_message = "E_u_Inverse";
         E_u_solver_ = E_u_->Get_Sparse_Matrix_Solver(use_direct_solvers_, verbosity_, out_stream_, E_u_solver_message);
