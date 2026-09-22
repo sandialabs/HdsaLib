@@ -126,28 +126,23 @@ template <class RealT, class LO = Tpetra::Map<>::local_ordinal_type, class GO = 
         int block = 0;
         std::string blockID = block_names[block];
 
+        auto bnd_group = solver->assembler->boundary_groups[block];
+        int num_grp = bnd_group.size();
         int num_sides = side_names.size();
-        for (int side = 0; side < num_sides; side++)
+        for (int grp = 0; grp < num_grp; grp++)
         {
-            std::vector<stk::mesh::Entity> sideEntities = solver->mesh->getMySTKSides(side_names[side], blockID);
-            std::vector<size_t> local_side_ids;
-            std::vector<stk::mesh::Entity> elems_on_sides;
-            solver->mesh->getSTKSideElements(blockID, sideEntities, local_side_ids, elems_on_sides);
-            auto topo = solver->mesh->getCellTopology(blockID);
-            const unsigned sideDim = topo->getDimension() - 1;
-
-            for (size_t k = 0; k < elems_on_sides.size(); ++k)
+            for (int side = 0; side < num_sides; side++)
             {
-                std::vector<stk::mesh::EntityId> elem_nodeids;
-                solver->mesh->getSTKNodeIdsForElement(elems_on_sides[k], elem_nodeids);
-
-                const unsigned sideOrd = static_cast<unsigned>(local_side_ids[k]);
-                const unsigned numSideNodes = topo->getNodeCount(sideDim, sideOrd);
-                for (unsigned j = 0; j < numSideNodes; ++j)
+                if (bnd_group[grp]->sidename == side_names[side])
                 {
-                    const unsigned elemNodeOrd = topo->getNodeMap(sideDim, sideOrd, j);
-                    int gid = elem_nodeids[elemNodeOrd] - 1;
-                    tpetra_vec->replaceGlobalValue(gid, 0, 1.0);
+                    for (int i = 0; i < bnd_group[grp]->LIDs[0].extent(0); i++)
+                    {
+                        for (int j = 0; j < bnd_group[grp]->LIDs[0].extent(1); j++)
+                        {
+                            int lid = bnd_group[grp]->LIDs[0](i, j);
+                            tpetra_vec->replaceLocalValue(lid, 0, 1.0);
+                        }
+                    }
                 }
             }
         }

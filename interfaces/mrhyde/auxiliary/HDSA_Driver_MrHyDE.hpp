@@ -224,7 +224,7 @@ template <class RealT, class LO = Tpetra::Map<>::local_ordinal_type, class GO = 
         std::vector<std::vector<std::string>> prior_dirichlet_names;
         prior_dirichlet_names.resize(num_states);
         std::vector<RealT> prior_dirichlet_penalty = std::vector<RealT>(num_states, 0.0);
-        
+
         std::vector<int> prior_num_sing_vals = std::vector<int>(num_states, 0);
         std::vector<int> prior_oversampling = std::vector<int>(num_states, 0);
         std::vector<int> prior_num_subspace_iter = std::vector<int>(num_states, 0);
@@ -402,16 +402,18 @@ template <class RealT, class LO = Tpetra::Map<>::local_ordinal_type, class GO = 
             if(is_transient)
             {
                 HDSA::Ptr<const HDSA::Transient_Vector<RealT>> u_opt_trans = HDSA::dynamicPtrCast<const HDSA::Transient_Vector<RealT>>(data_interface->Get_u_opt());
-                dirichlet_vec = data_interface->Extract_State_Component(*(*u_opt_trans)[0],k)->Clone();
-            } 
+                dirichlet_vec = (*u_opt_trans)[0]->Clone();
+            }
             else
             {
-                dirichlet_vec = data_interface->Extract_State_Component(*data_interface->Get_u_opt(),k)->Clone();
+                dirichlet_vec = data_interface->Get_u_opt()->Clone();
             }
             prior_operator_interface->Instantiate_Prior_Dirichlet_Operator(solver_, dirichlet_vec, prior_dirichlet_names[k]);
             dirichlet_vec->Scale(prior_dirichlet_penalty[k]);
             HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> D = M->Clone(1);
-            D->Set_Diagonal(*dirichlet_vec, false);
+            HDSA::Ptr<HDSA::Vector<RealT>> tmp = data_interface->Extract_State_Component(*dirichlet_vec, k)->Clone();
+            tmp->Set(*data_interface->Extract_State_Component(*dirichlet_vec, k));
+            D->Set_Diagonal(*tmp, false);
 
             u_hyperparam_interface_std[k] = HDSA::makePtr<MD_u_Hyperparameter_Interface_MrHyDE<RealT>>(comm_, data_interface, is_transient, center_data, adapt_time_variance, k);
             u_hyperparam_interface_std[k]->Set_alpha_d(alpha_d[k]);
