@@ -115,37 +115,29 @@ template <class RealT, class LO = Tpetra::Map<>::local_ordinal_type, class GO = 
         return J;
     }
 
-    void Instantiate_Prior_Dirichlet_Operator(const Teuchos::RCP<MrHyDE::SolverManager<SolverNode>> &solver, HDSA::Ptr<HDSA::Vector<RealT>> dirichlet_vec, std::vector<std::string> &side_names) const
+    void Instantiate_Prior_Dirichlet_Operator(const Teuchos::RCP<MrHyDE::SolverManager<SolverNode>> &solver, HDSA::Ptr<HDSA::Vector<RealT>> dirichlet_vec) const
     {
+        Teuchos::RCP<Tpetra::MultiVector<ScalarT, LO, GO, SolverNode>> vec_over = solver->linalg->getNewOverlappedVector(0);
         HDSA::Tpetra_Vector<RealT> &vec_tmp = dynamic_cast<HDSA::Tpetra_Vector<RealT> &>(*dirichlet_vec);
         HDSA::Ptr<Tpetra::MultiVector<RealT>> tpetra_vec = vec_tmp.getVector();
 
-        std::vector<std::string> block_names = solver->mesh->getBlockNames();
-        int num_blocks = block_names.size();
-        TEUCHOS_TEST_FOR_EXCEPTION(num_blocks > 1, std::logic_error, "Error in Instantiate_Prior_Dirichlet_Operator: Only one block is currently supported.");
-        int block = 0;
-        std::string blockID = block_names[block];
+        std::vector<std::vector<std::vector<std::vector<LO>>>> dbc_dofs = solver->disc->dbc_dofs; // [set][block][var][dof]
 
-        auto bnd_group = solver->assembler->boundary_groups[block];
-        int num_grp = bnd_group.size();
-        int num_sides = side_names.size();
-        for (int grp = 0; grp < num_grp; grp++)
+        int num_sets = dbc_dofs.size();
+        TEUCHOS_TEST_FOR_EXCEPTION(num_sets > 1, std::logic_error, "Error in Instantiate_Prior_Dirichlet_Operator: Only one set is currently supported.");
+        int num_blocks = dbc_dofs[0].size();
+        TEUCHOS_TEST_FOR_EXCEPTION(num_blocks > 1, std::logic_error, "Error in Instantiate_Prior_Dirichlet_Operator: Only one block is currently supported.");
+
+        int num_var = dbc_dofs[0][0].size();
+        for (int var = 0; var < num_var; var++)
         {
-            for (int side = 0; side < num_sides; side++)
+            int num_dof = dbc_dofs[0][0][var].size();
+            for (int j = 0; j < num_dof; j++)
             {
-                if (bnd_group[grp]->sidename == side_names[side])
-                {
-                    for (int i = 0; i < bnd_group[grp]->LIDs[0].extent(0); i++)
-                    {
-                        for (int j = 0; j < bnd_group[grp]->LIDs[0].extent(1); j++)
-                        {
-                            int lid = bnd_group[grp]->LIDs[0](i, j);
-                            tpetra_vec->replaceLocalValue(lid, 0, 1.0);
-                        }
-                    }
-                }
+                vec_over->replaceLocalValue(dbc_dofs[0][0][var][j], 0, 1.0);
             }
         }
+        solver->linalg->exportVectorFromOverlappedReplace(0, tpetra_vec, vec_over);
     }
 };
 #endif

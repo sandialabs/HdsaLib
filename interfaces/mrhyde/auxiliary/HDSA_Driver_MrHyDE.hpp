@@ -7,12 +7,6 @@
 #ifndef HDSA_DRIVER_MRHYDE_HPP
 #define HDSA_DRIVER_MRHYDE_HPP
 
-#include "HDSA_Ptr.hpp"
-#include "HDSA_Random_Number_Generator.hpp"
-#include "HDSA_Sparse_Matrix.hpp"
-#include "HDSA_Sparse_Matrix_Trilinos.hpp"
-#include "HDSA_Stream.hpp"
-#include "HDSA_Vector.hpp"
 #include "HDSA_BF_Sol_Op_Interface_MrHyDE.hpp"
 #include "HDSA_BF_Update.hpp"
 #include "HDSA_Comm.hpp"
@@ -41,6 +35,12 @@
 #include "HDSA_MD_z_Prior_Interface.hpp"
 #include "HDSA_Output_Writer_MrHyDE.hpp"
 #include "HDSA_Prior_Operators_Interface_MrHyDE.hpp"
+#include "HDSA_Ptr.hpp"
+#include "HDSA_Random_Number_Generator.hpp"
+#include "HDSA_Sparse_Matrix.hpp"
+#include "HDSA_Sparse_Matrix_Trilinos.hpp"
+#include "HDSA_Stream.hpp"
+#include "HDSA_Vector.hpp"
 #include <algorithm>
 #include <cmath>
 #include <iostream>
@@ -214,16 +214,13 @@ template <class RealT, class LO = Tpetra::Map<>::local_ordinal_type, class GO = 
         std::string prior_computation = HDSAsettings.sublist("Prior Computation").get<std::string>("State Prior", "Numeric_Laplacian");
         bool use_direct_solvers = HDSAsettings.sublist("Prior Computation").get<bool>("use_direct_solvers", false);
         bool use_incomplete_prec = HDSAsettings.sublist("Prior Computation").get<bool>("use_incomplete_prec", true);
+        RealT prior_dirichlet_penalty = HDSAsettings.sublist("Prior Computation").get<RealT>("prior_dirichlet_penalty", 0.0);
 
         int num_states = solver_->varlist[0][0].size();
         std::vector<RealT> alpha_u = std::vector<RealT>(num_states, 0.0);
         std::vector<RealT> beta_u = std::vector<RealT>(num_states, 0.0);
         std::vector<RealT> beta_t = std::vector<RealT>(num_states, 0.0);
         std::vector<RealT> alpha_d = std::vector<RealT>(num_states, 0.0);
-
-        std::vector<std::vector<std::string>> prior_dirichlet_names;
-        prior_dirichlet_names.resize(num_states);
-        std::vector<RealT> prior_dirichlet_penalty = std::vector<RealT>(num_states, 0.0);
 
         std::vector<int> prior_num_sing_vals = std::vector<int>(num_states, 0);
         std::vector<int> prior_oversampling = std::vector<int>(num_states, 0);
@@ -235,10 +232,6 @@ template <class RealT, class LO = Tpetra::Map<>::local_ordinal_type, class GO = 
             beta_u[k] = HDSAsettings.sublist("HyperParameters").sublist(state_var_name).get<RealT>("beta_u", 0.0);
             beta_t[k] = HDSAsettings.sublist("HyperParameters").sublist(state_var_name).get<RealT>("beta_t", 0.0);
             alpha_d[k] = HDSAsettings.sublist("HyperParameters").sublist(state_var_name).get<RealT>("alpha_d", 0.0);
-
-            std::string side_names = HDSAsettings.sublist("HyperParameters").sublist(state_var_name).get<std::string>("dirichlet_sides", "");
-            prior_dirichlet_names[k] = Split_Comma_Separated(side_names);
-            prior_dirichlet_penalty[k] = HDSAsettings.sublist("HyperParameters").sublist(state_var_name).get<RealT>("dirichlet_penalty", 0.0);
 
             prior_num_sing_vals[k] = HDSAsettings.sublist("HyperParameters").sublist(state_var_name).get<int>("prior_num_sing_vals", 200);
             prior_oversampling[k] = HDSAsettings.sublist("HyperParameters").sublist(state_var_name).get<int>("prior_oversampling", 20);
@@ -396,10 +389,11 @@ template <class RealT, class LO = Tpetra::Map<>::local_ordinal_type, class GO = 
         u_prior_interface_std.resize(num_states);
 
         bool is_transient = solver_->isTransient;
-        for (int k = 0; k < num_states; k++)
+
+        HDSA::Ptr<HDSA::Vector<RealT>> dirichlet_vec;
+        if (prior_dirichlet_penalty > 0.0)
         {
-            HDSA::Ptr<HDSA::Vector<RealT>> dirichlet_vec;
-            if(is_transient)
+            if (is_transient)
             {
                 HDSA::Ptr<const HDSA::Transient_Vector<RealT>> u_opt_trans = HDSA::dynamicPtrCast<const HDSA::Transient_Vector<RealT>>(data_interface->Get_u_opt());
                 dirichlet_vec = (*u_opt_trans)[0]->Clone();
@@ -408,13 +402,18 @@ template <class RealT, class LO = Tpetra::Map<>::local_ordinal_type, class GO = 
             {
                 dirichlet_vec = data_interface->Get_u_opt()->Clone();
             }
-            prior_operator_interface->Instantiate_Prior_Dirichlet_Operator(solver_, dirichlet_vec, prior_dirichlet_names[k]);
-            dirichlet_vec->Scale(prior_dirichlet_penalty[k]);
-            HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> D = M->Clone(1);
-            HDSA::Ptr<HDSA::Vector<RealT>> tmp = data_interface->Extract_State_Component(*dirichlet_vec, k)->Clone();
-            tmp->Set(*data_interface->Extract_State_Component(*dirichlet_vec, k));
-            D->Set_Diagonal(*tmp, false);
+            prior_operator_interface->Instantiate_Prior_Dirichlet_Operator(solver_, dirichlet_vec);
 
+            if (hdsa_verbosity > 1)
+            {
+                *outStream << "Imposing a penalty on " << dirichlet_vec->Dot(*dirichlet_vec) << " Dirichlet nodes in the prior" << std::endl;
+            }
+
+            dirichlet_vec->Scale(prior_dirichlet_penalty);
+        }
+
+        for (int k = 0; k < num_states; k++)
+        {
             u_hyperparam_interface_std[k] = HDSA::makePtr<MD_u_Hyperparameter_Interface_MrHyDE<RealT>>(comm_, data_interface, is_transient, center_data, adapt_time_variance, k);
             u_hyperparam_interface_std[k]->Set_alpha_d(alpha_d[k]);
             u_hyperparam_interface_std[k]->Set_alpha_u(alpha_u[k]);
@@ -423,6 +422,19 @@ template <class RealT, class LO = Tpetra::Map<>::local_ordinal_type, class GO = 
             if ((prior_computation != "Lumped_Mass") && (prior_computation != "Bilaplacian"))
             {
                 u_hyperparam_interface_std[k]->Set_GSVD_Hyperparameters(prior_num_sing_vals[k], prior_oversampling[k], prior_num_subspace_iter[k]);
+            }
+
+            HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> D;
+            if (prior_dirichlet_penalty > 0.0)
+            {
+                D = M->Clone(1);
+                HDSA::Ptr<HDSA::Vector<RealT>> tmp = data_interface->Extract_State_Component(*dirichlet_vec, k)->Clone();
+                tmp->Set(*data_interface->Extract_State_Component(*dirichlet_vec, k));
+                D->Set_Diagonal(*tmp, false);
+            }
+            else
+            {
+                D = HDSA::nullPtr;
             }
 
             if (is_transient)

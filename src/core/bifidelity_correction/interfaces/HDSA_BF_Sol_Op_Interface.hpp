@@ -7,6 +7,8 @@
 #ifndef HDSA_BF_SOL_OP_INTERFACE_HPP
 #define HDSA_BF_SOL_OP_INTERFACE_HPP
 
+#include "HDSA_Vector.hpp"
+
 namespace HDSA
 {
 

@@ -1,0 +1,15 @@
+Beginning Data_Interface instantiation
+u_opt->norm() = 1391.49
+z_opt->norm() = 286.551
+Z[0]->norm() = 286.551
+D[0]->norm() = 35.2895
+Beginning Opt_Prob_Interface instantiation
+Beginning u_Prior_Interface instantiation
+Imposing a penalty on 196 Dirichlet nodes in the prior
+Beginning z_Prior_Interface instantiation
+Beginning prior discrepancy analysis
+Beginning posterior data computation
+Beginning posterior discrepancy analysis
+Beginning Hessian analysis
+Beginning posterior optimal solution analysis
+z_update_mean norm = 286.851
