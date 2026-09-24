@@ -327,21 +327,24 @@ public:
       Teuchos::ArrayRCP<const RealT> u_view = eu_tpetra->get1dView();
       Teuchos::RCP<const Tpetra::Map<LO, GO>> map = eu_tpetra->getMap();
 
-      int num_local_elements = map->getLocalNumElements() / num_states;
-      int init_index = map->getMinGlobalIndex() / num_states;
-      int num_global_element = map->getGlobalNumElements() / num_states;
-      Teuchos::Array<GO> component_ids(num_local_elements);
-      for (int i = 0; i < num_local_elements; ++i)
-      {
-        component_ids[i] = init_index + i;
-      }
-      Teuchos::RCP<const Tpetra::Map<LO, GO>> component_map = HDSA::makePtr<Tpetra::Map<LO, GO>>(num_global_element, component_ids, 0, solve_->Comm);
+      std::vector<GO> component_gids = Get_State_Component_GIDs(component_id, *map);
+      int num_local_elements = component_gids.size();
+      int num_global_element = map->getGlobalNumElements() / num_states; // Currently assuming that all states are defined on the same mesh with the same discretization
+      Teuchos::ArrayView<const GO> gids_view(component_gids.data(), component_gids.size());
+      Teuchos::RCP<const Tpetra::Map<LO, GO>> component_map = HDSA::makePtr<Tpetra::Map<LO, GO>>(num_global_element, gids_view, 0, solve_->Comm);
 
       HDSA::Ptr<Tpetra::MultiVector<ScalarT, LO, GO, Node>> tpetra_vec = HDSA::makePtr<Tpetra::MultiVector<ScalarT, LO, GO, Node>>(component_map, 1);
       for (int k = 0; k < num_local_elements; k++)
       {
-        tpetra_vec->replaceLocalValue(k, 0, u_view[num_states * k + component_id]);
+          GO gid = component_gids[k];
+          LO full_lid = map->getLocalElement(gid);
+          LO component_lid = component_map->getLocalElement(gid);
+          if (full_lid != Teuchos::OrdinalTraits<LO>::invalid() && component_lid != Teuchos::OrdinalTraits<LO>::invalid())
+          {
+             tpetra_vec->replaceLocalValue(component_lid, 0, u_view[full_lid]);
+          }
       }
+
       u_component = HDSA::makePtr<HDSA::Tpetra_Vector<RealT>>(tpetra_vec, random_number_generator_);
     }
     return u_component;
@@ -359,12 +362,49 @@ public:
       const HDSA::Tpetra_Vector<RealT> u_tpetra = dynamic_cast<const HDSA::Tpetra_Vector<RealT> &>(u);
       const HDSA::Tpetra_Vector<RealT> u_component_tpetra = dynamic_cast<const HDSA::Tpetra_Vector<RealT> &>(u_component);
       Teuchos::ArrayRCP<const RealT> u_component_view = u_component_tpetra.getVector()->get1dView();
-      int local_dim = u_component_tpetra.getVector()->getLocalLength();
+
+      std::vector<GO> component_gids = Get_State_Component_GIDs(component_id, *u_tpetra.getVector()->getMap());
+      int local_dim = component_gids.size();
       for (int k = 0; k < local_dim; k++)
       {
-        u_tpetra.getVector()->replaceLocalValue(num_states * k + component_id, 0, u_component_view[k]);
+          GO gid = component_gids[k];
+          LO full_lid = u_tpetra.getVector()->getMap()->getLocalElement(gid);
+          LO component_lid = u_component_tpetra.getVector()->getMap()->getLocalElement(gid);
+          if (full_lid != Teuchos::OrdinalTraits<LO>::invalid() && component_lid != Teuchos::OrdinalTraits<LO>::invalid())
+          {
+              u_tpetra.getVector()->replaceLocalValue(full_lid, 0, u_component_view[component_lid]);
+          }
       }
     }
+  }
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Helper functions
+  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  std::vector<GO> Get_State_Component_GIDs(int component_id, const Tpetra::Map<LO, GO, Node> &full_map) const
+  {
+      std::vector<GO> component_gids;
+      const int set = 0;
+      const int block = 0;
+      const auto &offsets = solve_->disc->offsets[set][block][component_id];
+      for (size_t elem = 0; elem < solve_->disc->dof_lids[set].extent(0); ++elem)
+      {
+          for (int offset : offsets)
+          {
+              LO lid = solve_->disc->dof_lids[set](elem, offset);
+              GO gid = solve_->disc->dof_owned_and_shared[set](lid);
+              if (full_map.getLocalElement(gid) != Teuchos::OrdinalTraits<LO>::invalid())
+              {
+                  component_gids.push_back(gid);
+              }
+          }
+      }
+
+      std::sort(component_gids.begin(), component_gids.end());
+      component_gids.erase(std::unique(component_gids.begin(), component_gids.end()), component_gids.end());
+
+      return component_gids;
   }
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
