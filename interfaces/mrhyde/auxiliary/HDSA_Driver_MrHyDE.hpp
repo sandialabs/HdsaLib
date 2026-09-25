@@ -41,6 +41,7 @@
 #include "HDSA_Sparse_Matrix_Trilinos.hpp"
 #include "HDSA_Stream.hpp"
 #include "HDSA_Vector.hpp"
+#include "HDSA_Tester_MrHyDE.hpp"
 #include <algorithm>
 #include <cmath>
 #include <iostream>
@@ -70,17 +71,18 @@ template <class RealT, class LO = Tpetra::Map<>::local_ordinal_type, class GO = 
     void HDSA_Solve(void)
     {
         Teuchos::ParameterList HDSAsettings;
-
         if (settings_->sublist("Analysis").isSublist("HDSA"))
             HDSAsettings = settings_->sublist("Analysis").sublist("HDSA");
         else
             TEUCHOS_TEST_FOR_EXCEPTION(true, std::runtime_error, "Error: MrHyDE could not find the HDSA sublist in the input file!  Abort!");
 
         bool do_bifidelity_correction = HDSAsettings.sublist("Configuration").get<bool>("do_bifidelity_correction", false);
-        bool check_solution_operator_z_jacobian = HDSAsettings.sublist("Configuration").get<bool>("check_solution_operator_z_jacobian", false);
-        if (check_solution_operator_z_jacobian)
+        bool check_solution_operator_z_jacobian = HDSAsettings.sublist("Tests").get<bool>("check_solution_operator_z_jacobian", false);
+        bool check_prior_dirichlet_condition = HDSAsettings.sublist("Tests").get<bool>("check_prior_dirichlet_condition", false);
+
+        if (check_solution_operator_z_jacobian || check_prior_dirichlet_condition)
         {
-            Solution_Operator_z_Jacobian_Finite_Difference_Check(HDSAsettings);
+            Tester_MrHyDE<RealT>(comm_, settings_, solver_, postproc_, params_);
         }
         else if (do_bifidelity_correction)
         {
@@ -754,112 +756,5 @@ template <class RealT, class LO = Tpetra::Map<>::local_ordinal_type, class GO = 
         }
     }
 
-    bool Solution_Operator_z_Jacobian_Finite_Difference_Check(Teuchos::ParameterList &HDSAsettings)
-    {
-        postproc_->write_solution = false;
-        postproc_->write_optimization_solution = false;
-        HDSA::Ptr<std::ostream> outStream;
-        HDSA::nullstream bhs; // outputs nothing
-        if (comm_->getRank() == 0)
-        {
-            outStream = HDSA::makePtrFromRef(std::cout);
-        }
-        else
-        {
-            outStream = HDSA::makePtrFromRef(bhs);
-        }
-
-        RealT h = HDSAsettings.sublist("Configuration").get<RealT>("solution_operator_z_jacobian_check_step", 1.0e-6);
-        RealT tolerance = HDSAsettings.sublist("Configuration").get<RealT>("solution_operator_z_jacobian_check_tolerance", 1.0e-4);
-        TEUCHOS_TEST_FOR_EXCEPTION(h <= static_cast<RealT>(0), std::logic_error, "Error: solution_operator_z_jacobian_check_step must be positive.");
-        TEUCHOS_TEST_FOR_EXCEPTION(tolerance <= static_cast<RealT>(0), std::logic_error, "Error: solution_operator_z_jacobian_check_tolerance must be positive.");
-
-        HDSA::Ptr<const HDSA::Comm<int>> hdsa_comm = HDSA::makePtr<HDSA::Comm<int>>(comm_);
-        HDSA::Ptr<HDSA::Random_Number_Generator<RealT>> random_number_generator = HDSA::makePtr<HDSA::Random_Number_Generator<RealT>>(hdsa_comm);
-        Teuchos::ParameterList data_load_list = HDSAsettings.sublist("DataLoadParameters");
-        HDSA::Ptr<HDSA::MD_Data_Interface<RealT>> data_interface = HDSA::makePtr<MD_Data_Interface_MrHyDE<RealT>>(comm_, solver_, params_, random_number_generator, data_load_list);
-        HDSA::Ptr<HDSA::MD_Opt_Prob_Interface<RealT>> opt_prob_interface = HDSA::makePtr<MD_Opt_Prob_Interface_MrHyDE<RealT>>(solver_, postproc_, params_, data_interface);
-
-        HDSA::Ptr<const HDSA::Vector<RealT>> z = data_interface->Get_z_opt();
-        HDSA::Ptr<const HDSA::Vector<RealT>> u_shape = data_interface->Get_u_opt();
-
-        HDSA::Ptr<HDSA::Vector<RealT>> u_base = u_shape->Clone();
-        opt_prob_interface->State_Solve(*u_base, *z);
-
-        HDSA::Ptr<HDSA::Vector<RealT>> z_direction = z->Clone();
-        z_direction->Set_Scalar(1.0);
-
-        HDSA::Ptr<HDSA::Vector<RealT>> u_jacobian = u_shape->Clone();
-        opt_prob_interface->Apply_Solution_Operator_z_Jacobian(*u_jacobian, *z_direction, *z);
-
-        HDSA::Ptr<HDSA::Vector<RealT>> z_plus = z->Clone();
-        HDSA::Ptr<HDSA::Vector<RealT>> z_minus = z->Clone();
-        z_plus->Set(*z);
-        z_minus->Set(*z);
-        z_plus->Scaled_Plus(h, *z_direction);
-        z_minus->Scaled_Plus(-h, *z_direction);
-
-        HDSA::Ptr<HDSA::Vector<RealT>> u_plus = u_shape->Clone();
-        HDSA::Ptr<HDSA::Vector<RealT>> u_minus = u_shape->Clone();
-        opt_prob_interface->State_Solve(*u_plus, *z_plus);
-        opt_prob_interface->State_Solve(*u_minus, *z_minus);
-
-        HDSA::Ptr<HDSA::Vector<RealT>> u_fd = u_shape->Clone();
-        u_fd->Set(*u_plus);
-        u_fd->Scaled_Plus(-1.0, *u_minus);
-        u_fd->Scale(1.0 / (2.0 * h));
-
-        HDSA::Ptr<HDSA::Vector<RealT>> error = u_shape->Clone();
-        error->Set(*u_jacobian);
-        error->Scaled_Plus(-1.0, *u_fd);
-
-        const RealT fd_norm = u_fd->Norm();
-        const RealT error_norm = error->Norm();
-        const RealT relative_error = error_norm / std::max(static_cast<RealT>(1.0), fd_norm);
-
-        bool passed = true;
-        if (relative_error <= tolerance)
-        {
-            *outStream << "Apply_Solution_Operator_z_Jacobian finite-difference check passed" << std::endl;
-        }
-        else
-        {
-            passed = false;
-            *outStream << "Apply_Solution_Operator_z_Jacobian finite-difference check failed" << std::endl;
-            *outStream << "  relative error = " << relative_error << std::endl;
-            *outStream << "  tolerance      = " << tolerance << std::endl;
-        }
-        return passed;
-    }
-
-    std::vector<std::string> Split_Comma_Separated(const std::string &input)
-    {
-        std::vector<std::string> result;
-        std::stringstream ss(input);
-        std::string item;
-
-        while (std::getline(ss, item, ','))
-        {
-            result.push_back(trim(item));
-        }
-        return result;
-    }
-
-    std::string trim(const std::string &s)
-    {
-        std::size_t start = 0;
-        while (start < s.size() && std::isspace(static_cast<unsigned char>(s[start])))
-        {
-            ++start;
-        }
-
-        std::size_t end = s.size();
-        while (end > start && std::isspace(static_cast<unsigned char>(s[end - 1])))
-        {
-            --end;
-        }
-
-        return s.substr(start, end - start);
-    }
 };
 #endif

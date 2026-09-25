@@ -4,10 +4,11 @@ ANONYMOUS:
   Analysis:
     analysis type: HDSA
     HDSA:
-      Configuration:
+      Tests:
         check_solution_operator_z_jacobian: true
         solution_operator_z_jacobian_check_step: 1.0e-5
         solution_operator_z_jacobian_check_tolerance: 1.0e-8
+      Configuration:
         verbosity: 1
       HyperParameters:
         T:

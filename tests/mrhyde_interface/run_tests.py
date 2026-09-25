@@ -59,5 +59,5 @@ for subdir, _, _ in os.walk(base_directory):
             print(f"{GREEN}Test Passed: {output_log} matches {gold_file}{RESET}")
 
     # Clean up the output files
-    cleanup_command = f"rm -rf hdsa_output output.log output_jacobian_check.log mrhyde"
+    cleanup_command = f"rm -rf hdsa_output output.log output_jacobian_check.log mrhyde test_vectors"
     execute_command(cleanup_command, cwd=subdir)
