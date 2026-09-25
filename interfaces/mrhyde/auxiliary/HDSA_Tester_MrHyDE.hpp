@@ -133,7 +133,6 @@ template <class RealT, class LO = Tpetra::Map<>::local_ordinal_type, class GO = 
 
         vector<string> blockNames = solver_->mesh->getBlockNames();
         HDSA::Ptr<Prior_Operators_Interface_MrHyDE<RealT>> prior_operator_interface = HDSA::makePtr<Prior_Operators_Interface_MrHyDE<RealT>>(comm_, settings_, blockNames);
-        HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> M = HDSA::makePtr<HDSA::Sparse_Matrix_Trilinos<RealT>>(prior_operator_interface->M);
 
         HDSA::Ptr<HDSA::Vector<RealT>> dirichlet_vec;
         if (is_transient)
@@ -152,6 +151,10 @@ template <class RealT, class LO = Tpetra::Map<>::local_ordinal_type, class GO = 
             HDSA::Ptr<HDSA::Vector<RealT>> dvk = data_interface->Extract_State_Component(*dirichlet_vec, k)->Clone();
             dvk->Set(*data_interface->Extract_State_Component(*dirichlet_vec, k));
 
+            HDSA::Ptr<const HDSA::Tpetra_Vector<RealT>> dvk_tpetra = HDSA::dynamicPtrCast<const HDSA::Tpetra_Vector<RealT>>(dvk);
+            HDSA::Ptr<const Tpetra::Map<LO,GO,Node>> vec_map = dvk_tpetra->getVector()->getMap();
+            HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> Mk = HDSA::makePtr<HDSA::Sparse_Matrix_Trilinos<RealT>>(prior_operator_interface->M,vec_map);
+
             if (dvk->Norm() > 0.0)
             {
                 *outStream << "Dirichlet vector passed" << std::endl;
@@ -163,14 +166,14 @@ template <class RealT, class LO = Tpetra::Map<>::local_ordinal_type, class GO = 
                 *outStream << "The Dirichlet index vector is zero" << std::endl;
             }
 
-            HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> D = M->Clone(1);
-            D->Set_Diagonal(*dvk, false);
+            HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> Dk = Mk->Clone(1);
+            Dk->Set_Diagonal(*dvk, false);
 
             HDSA::Ptr<HDSA::Vector<RealT>> tmp_in = dvk->Clone();
             tmp_in->Set_Scalar(1.0);
             tmp_in->Scaled_Plus(-1.0,*dvk);
             HDSA::Ptr<HDSA::Vector<RealT>> tmp_out = dvk->Clone();
-            D->Apply(*tmp_out, *tmp_in);
+            Dk->Apply(*tmp_out, *tmp_in);
 
             if (tmp_out->Norm() == 0.0)
             {
@@ -180,12 +183,12 @@ template <class RealT, class LO = Tpetra::Map<>::local_ordinal_type, class GO = 
             {
                 passed = false;
                 *outStream << "Dirichlet matrix test 1 failed" << std::endl;
-                *outStream << "The matrix D does not impose the Dirichlet condition" << std::endl;
+                *outStream << "The matrix Dk does not impose the Dirichlet condition" << std::endl;
             }
 
             tmp_in->Set(*data_interface->Extract_State_Component(*u_opt,k));
             tmp_out->Zeros();
-            D->Apply(*tmp_out, *tmp_in);
+            Dk->Apply(*tmp_out, *tmp_in);
 
             if (tmp_out->Norm() == 0.0)
             {
@@ -195,7 +198,7 @@ template <class RealT, class LO = Tpetra::Map<>::local_ordinal_type, class GO = 
             {
                 passed = false;
                 *outStream << "Dirichlet matrix test 2 failed" << std::endl;
-                *outStream << "The matrix D does not impose the Dirichlet condition" << std::endl;
+                *outStream << "The matrix Dk does not impose the Dirichlet condition" << std::endl;
             }
 
         }

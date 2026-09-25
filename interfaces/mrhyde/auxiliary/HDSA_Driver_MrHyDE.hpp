@@ -40,8 +40,8 @@
 #include "HDSA_Sparse_Matrix.hpp"
 #include "HDSA_Sparse_Matrix_Trilinos.hpp"
 #include "HDSA_Stream.hpp"
-#include "HDSA_Vector.hpp"
 #include "HDSA_Tester_MrHyDE.hpp"
+#include "HDSA_Vector.hpp"
 #include <algorithm>
 #include <cmath>
 #include <iostream>
@@ -379,8 +379,6 @@ template <class RealT, class LO = Tpetra::Map<>::local_ordinal_type, class GO = 
 
         vector<string> blockNames = solver_->mesh->getBlockNames();
         HDSA::Ptr<Prior_Operators_Interface_MrHyDE<RealT>> prior_operator_interface = HDSA::makePtr<Prior_Operators_Interface_MrHyDE<RealT>>(comm_, settings_, blockNames);
-        HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> M = HDSA::makePtr<HDSA::Sparse_Matrix_Trilinos<RealT>>(prior_operator_interface->M);
-        HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> S = HDSA::makePtr<HDSA::Sparse_Matrix_Trilinos<RealT>>(prior_operator_interface->S);
 
         HDSA::Ptr<HDSA::MD_u_Prior_Interface<RealT>> u_prior_interface;
         HDSA::Ptr<HDSA::MD_u_Hyperparameter_Interface<RealT>> u_hyperparam_interface;
@@ -426,17 +424,33 @@ template <class RealT, class LO = Tpetra::Map<>::local_ordinal_type, class GO = 
                 u_hyperparam_interface_std[k]->Set_GSVD_Hyperparameters(prior_num_sing_vals[k], prior_oversampling[k], prior_num_subspace_iter[k]);
             }
 
-            HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> D;
-            if (prior_dirichlet_penalty > 0.0)
+            HDSA::Ptr<HDSA::Vector<RealT>> v;
+            if (is_transient)
             {
-                D = M->Clone(1);
-                HDSA::Ptr<HDSA::Vector<RealT>> tmp = data_interface->Extract_State_Component(*dirichlet_vec, k)->Clone();
-                tmp->Set(*data_interface->Extract_State_Component(*dirichlet_vec, k));
-                D->Set_Diagonal(*tmp, false);
+                HDSA::Ptr<const HDSA::Transient_Vector<RealT>> u_opt_trans = HDSA::dynamicPtrCast<const HDSA::Transient_Vector<RealT>>(data_interface->Get_u_opt());
+                v = (*u_opt_trans)[0]->Clone();
             }
             else
             {
-                D = HDSA::nullPtr;
+                v = data_interface->Get_u_opt()->Clone();
+            }
+            HDSA::Ptr<const HDSA::Vector<RealT>> vk = data_interface->Extract_State_Component(*v, k);
+            HDSA::Ptr<const HDSA::Tpetra_Vector<RealT>> vk_tpetra = HDSA::dynamicPtrCast<const HDSA::Tpetra_Vector<RealT>>(vk);
+            HDSA::Ptr<const Tpetra::Map<LO,GO,Node>> vec_map = vk_tpetra->getVector()->getMap();
+            HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> Mk = HDSA::makePtr<HDSA::Sparse_Matrix_Trilinos<RealT>>(prior_operator_interface->M,vec_map);
+            HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> Sk = HDSA::makePtr<HDSA::Sparse_Matrix_Trilinos<RealT>>(prior_operator_interface->S,vec_map);
+
+            HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> Dk;
+            if (prior_dirichlet_penalty > 0.0)
+            {
+                Dk = Mk->Clone(1);
+                HDSA::Ptr<HDSA::Vector<RealT>> tmp = data_interface->Extract_State_Component(*dirichlet_vec, k)->Clone();
+                tmp->Set(*data_interface->Extract_State_Component(*dirichlet_vec, k));
+                Dk->Set_Diagonal(*tmp, false);
+            }
+            else
+            {
+                Dk = HDSA::nullPtr;
             }
 
             if (is_transient)
@@ -452,17 +466,17 @@ template <class RealT, class LO = Tpetra::Map<>::local_ordinal_type, class GO = 
                     HDSA::Ptr<HDSA::MD_OUU_Hyperparameter_Data_Interface<RealT>> data_interface_hyperparam = HDSA::makePtr<HDSA::MD_OUU_Hyperparameter_Data_Interface<RealT>>(ouu_data_interface);
                     if (prior_computation == "Lumped_Mass")
                     {
-                        spatial_u_prior_interface_k = HDSA::makePtr<HDSA::MD_Lumped_Mass_u_Prior_Interface<RealT>>(S, M, data_interface_hyperparam, u_hyperparam_interface_std[k], D, use_direct_solvers, hdsa_verbosity,
+                        spatial_u_prior_interface_k = HDSA::makePtr<HDSA::MD_Lumped_Mass_u_Prior_Interface<RealT>>(Sk, Mk, data_interface_hyperparam, u_hyperparam_interface_std[k], Dk, use_direct_solvers, hdsa_verbosity,
                                                                                                                    use_incomplete_prec, *outStream);
                     }
                     else if (prior_computation == "Bilaplacian")
                     {
-                        spatial_u_prior_interface_k = HDSA::makePtr<HDSA::MD_Bilaplacian_u_Prior_Interface<RealT>>(S, M, data_interface_hyperparam, u_hyperparam_interface_std[k], D, use_direct_solvers, hdsa_verbosity,
+                        spatial_u_prior_interface_k = HDSA::makePtr<HDSA::MD_Bilaplacian_u_Prior_Interface<RealT>>(Sk, Mk, data_interface_hyperparam, u_hyperparam_interface_std[k], Dk, use_direct_solvers, hdsa_verbosity,
                                                                                                                    use_incomplete_prec, *outStream);
                     }
                     else
                     {
-                        spatial_u_prior_interface_k = HDSA::makePtr<HDSA::MD_Numeric_Laplacian_u_Prior_Interface<RealT>>(S, M, data_interface_hyperparam, u_hyperparam_interface_std[k], random_number_generator, D);
+                        spatial_u_prior_interface_k = HDSA::makePtr<HDSA::MD_Numeric_Laplacian_u_Prior_Interface<RealT>>(Sk, Mk, data_interface_hyperparam, u_hyperparam_interface_std[k], random_number_generator, Dk);
                     }
                     int n_y = data_interface_hyperparam->Get_u_opt()->Dimension() / n_t;
                     transient_prior_cov_k = HDSA::makePtr<HDSA::MD_Transient_Prior_Covariance<RealT>>(data_interface_hyperparam, u_hyperparam_interface_std[k], T, n_t, n_y);
@@ -473,16 +487,16 @@ template <class RealT, class LO = Tpetra::Map<>::local_ordinal_type, class GO = 
                     if (prior_computation == "Lumped_Mass")
                     {
                         spatial_u_prior_interface_k =
-                            HDSA::makePtr<HDSA::MD_Lumped_Mass_u_Prior_Interface<RealT>>(S, M, data_interface, u_hyperparam_interface_std[k], D, use_direct_solvers, hdsa_verbosity, use_incomplete_prec, *outStream);
+                            HDSA::makePtr<HDSA::MD_Lumped_Mass_u_Prior_Interface<RealT>>(Sk, Mk, data_interface, u_hyperparam_interface_std[k], Dk, use_direct_solvers, hdsa_verbosity, use_incomplete_prec, *outStream);
                     }
                     if (prior_computation == "Bilaplacian")
                     {
                         spatial_u_prior_interface_k =
-                            HDSA::makePtr<HDSA::MD_Bilaplacian_u_Prior_Interface<RealT>>(S, M, data_interface, u_hyperparam_interface_std[k], D, use_direct_solvers, hdsa_verbosity, use_incomplete_prec, *outStream);
+                            HDSA::makePtr<HDSA::MD_Bilaplacian_u_Prior_Interface<RealT>>(Sk, Mk, data_interface, u_hyperparam_interface_std[k], Dk, use_direct_solvers, hdsa_verbosity, use_incomplete_prec, *outStream);
                     }
                     else
                     {
-                        spatial_u_prior_interface_k = HDSA::makePtr<HDSA::MD_Numeric_Laplacian_u_Prior_Interface<RealT>>(S, M, data_interface, u_hyperparam_interface_std[k], random_number_generator, D);
+                        spatial_u_prior_interface_k = HDSA::makePtr<HDSA::MD_Numeric_Laplacian_u_Prior_Interface<RealT>>(Sk, Mk, data_interface, u_hyperparam_interface_std[k], random_number_generator, Dk);
                     }
                     transient_prior_cov_k = HDSA::makePtr<HDSA::MD_Transient_Prior_Covariance<RealT>>(data_interface, u_hyperparam_interface_std[k], T, n_t, n_y);
                 }
@@ -497,17 +511,17 @@ template <class RealT, class LO = Tpetra::Map<>::local_ordinal_type, class GO = 
                     HDSA::Ptr<HDSA::MD_OUU_Hyperparameter_Data_Interface<RealT>> data_interface_hyperparam = HDSA::makePtr<HDSA::MD_OUU_Hyperparameter_Data_Interface<RealT>>(ouu_data_interface);
                     if (prior_computation == "Lumped_Mass")
                     {
-                        u_prior_interface_std[k] = HDSA::makePtr<HDSA::MD_Lumped_Mass_u_Prior_Interface<RealT>>(S, M, data_interface_hyperparam, u_hyperparam_interface_std[k], D, use_direct_solvers, hdsa_verbosity,
+                        u_prior_interface_std[k] = HDSA::makePtr<HDSA::MD_Lumped_Mass_u_Prior_Interface<RealT>>(Sk, Mk, data_interface_hyperparam, u_hyperparam_interface_std[k], Dk, use_direct_solvers, hdsa_verbosity,
                                                                                                                 use_incomplete_prec, *outStream);
                     }
                     else if (prior_computation == "Bilaplacian")
                     {
-                        u_prior_interface_std[k] = HDSA::makePtr<HDSA::MD_Bilaplacian_u_Prior_Interface<RealT>>(S, M, data_interface_hyperparam, u_hyperparam_interface_std[k], D, use_direct_solvers, hdsa_verbosity,
+                        u_prior_interface_std[k] = HDSA::makePtr<HDSA::MD_Bilaplacian_u_Prior_Interface<RealT>>(Sk, Mk, data_interface_hyperparam, u_hyperparam_interface_std[k], Dk, use_direct_solvers, hdsa_verbosity,
                                                                                                                 use_incomplete_prec, *outStream);
                     }
                     else
                     {
-                        u_prior_interface_std[k] = HDSA::makePtr<HDSA::MD_Numeric_Laplacian_u_Prior_Interface<RealT>>(S, M, data_interface_hyperparam, u_hyperparam_interface_std[k], random_number_generator, D);
+                        u_prior_interface_std[k] = HDSA::makePtr<HDSA::MD_Numeric_Laplacian_u_Prior_Interface<RealT>>(Sk, Mk, data_interface_hyperparam, u_hyperparam_interface_std[k], random_number_generator, Dk);
                     }
                 }
                 else
@@ -515,16 +529,16 @@ template <class RealT, class LO = Tpetra::Map<>::local_ordinal_type, class GO = 
                     if (prior_computation == "Lumped_Mass")
                     {
                         u_prior_interface_std[k] =
-                            HDSA::makePtr<HDSA::MD_Lumped_Mass_u_Prior_Interface<RealT>>(S, M, data_interface, u_hyperparam_interface_std[k], D, use_direct_solvers, hdsa_verbosity, use_incomplete_prec, *outStream);
+                            HDSA::makePtr<HDSA::MD_Lumped_Mass_u_Prior_Interface<RealT>>(Sk, Mk, data_interface, u_hyperparam_interface_std[k], Dk, use_direct_solvers, hdsa_verbosity, use_incomplete_prec, *outStream);
                     }
                     else if (prior_computation == "Bilaplacian")
                     {
                         u_prior_interface_std[k] =
-                            HDSA::makePtr<HDSA::MD_Bilaplacian_u_Prior_Interface<RealT>>(S, M, data_interface, u_hyperparam_interface_std[k], D, use_direct_solvers, hdsa_verbosity, use_incomplete_prec, *outStream);
+                            HDSA::makePtr<HDSA::MD_Bilaplacian_u_Prior_Interface<RealT>>(Sk, Mk, data_interface, u_hyperparam_interface_std[k], Dk, use_direct_solvers, hdsa_verbosity, use_incomplete_prec, *outStream);
                     }
                     else
                     {
-                        u_prior_interface_std[k] = HDSA::makePtr<HDSA::MD_Numeric_Laplacian_u_Prior_Interface<RealT>>(S, M, data_interface, u_hyperparam_interface_std[k], random_number_generator, D);
+                        u_prior_interface_std[k] = HDSA::makePtr<HDSA::MD_Numeric_Laplacian_u_Prior_Interface<RealT>>(Sk, Mk, data_interface, u_hyperparam_interface_std[k], random_number_generator, Dk);
                     }
                 }
             }
@@ -591,6 +605,8 @@ template <class RealT, class LO = Tpetra::Map<>::local_ordinal_type, class GO = 
         HDSA::Ptr<HDSA::MD_z_Prior_Interface<RealT>> z_prior_interface;
         if (z_type == "spatial field")
         {
+            HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> M = HDSA::makePtr<HDSA::Sparse_Matrix_Trilinos<RealT>>(prior_operator_interface->M);
+            HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> S = HDSA::makePtr<HDSA::Sparse_Matrix_Trilinos<RealT>>(prior_operator_interface->S);
             z_hyperparam_interface->Set_beta_z(beta_z);
             z_prior_interface =
                 HDSA::makePtr<HDSA::MD_Numeric_Laplacian_z_Prior_Interface<RealT>>(S, M, data_interface, z_hyperparam_interface, u_prior_interface, use_direct_solvers, hdsa_verbosity, use_incomplete_prec, *outStream);
@@ -755,6 +771,5 @@ template <class RealT, class LO = Tpetra::Map<>::local_ordinal_type, class GO = 
             }
         }
     }
-
 };
 #endif
