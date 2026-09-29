@@ -153,7 +153,7 @@ template <class RealT, class LO = Tpetra::Map<>::local_ordinal_type, class GO = 
 
             HDSA::Ptr<const HDSA::Tpetra_Vector<RealT>> dvk_tpetra = HDSA::dynamicPtrCast<const HDSA::Tpetra_Vector<RealT>>(dvk);
             HDSA::Ptr<const Tpetra::Map<LO,GO,Node>> vec_map = dvk_tpetra->getVector()->getMap();
-            HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> Mk = HDSA::makePtr<HDSA::Sparse_Matrix_Trilinos<RealT>>(prior_operator_interface->M,vec_map);
+            HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> Mk = HDSA::makePtr<HDSA::Sparse_Matrix_Trilinos<RealT>>(prior_operator_interface->M,vec_map,k,num_states);
 
             if (dvk->Norm() > 0.0)
             {
