@@ -148,12 +148,9 @@ template <class RealT, class LO = Tpetra::Map<>::local_ordinal_type, class GO = 
 
         for(int k = 0; k < num_states; k++)
         {
-            HDSA::Ptr<HDSA::Vector<RealT>> dvk = data_interface->Extract_State_Component(*dirichlet_vec, k)->Clone();
-            dvk->Set(*data_interface->Extract_State_Component(*dirichlet_vec, k));
-
-            HDSA::Ptr<const HDSA::Tpetra_Vector<RealT>> dvk_tpetra = HDSA::dynamicPtrCast<const HDSA::Tpetra_Vector<RealT>>(dvk);
-            HDSA::Ptr<const Tpetra::Map<LO,GO,Node>> vec_map = dvk_tpetra->getVector()->getMap();
-            HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> Mk = HDSA::makePtr<HDSA::Sparse_Matrix_Trilinos<RealT>>(prior_operator_interface->M,vec_map,k,num_states);
+            HDSA::Ptr<const HDSA::Vector<RealT>> dvk_const = data_interface->Extract_State_Component(*dirichlet_vec, k);
+            HDSA::Ptr<HDSA::Vector<RealT>> dvk = dvk_const->Clone();
+            dvk->Set(*dvk_const);
 
             if (dvk->Norm() > 0.0)
             {
@@ -166,7 +163,10 @@ template <class RealT, class LO = Tpetra::Map<>::local_ordinal_type, class GO = 
                 *outStream << "The Dirichlet index vector is zero" << std::endl;
             }
 
-            HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> Dk = Mk->Clone(1);
+            HDSA::Tpetra_Vector<RealT> dvk_t = dynamic_cast<HDSA::Tpetra_Vector<RealT>&>(*dvk);
+            HDSA::Ptr<const Tpetra::Map<LO, GO, Node>> target_map = dvk_t.getVector()->getMap();
+            HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> M = HDSA::makePtr<HDSA::Sparse_Matrix_Trilinos<RealT>>(prior_operator_interface->M, target_map, true);
+            HDSA::Ptr<HDSA::Sparse_Matrix<RealT>> Dk = M->Clone(1);
             Dk->Set_Diagonal(*dvk, false);
 
             HDSA::Ptr<HDSA::Vector<RealT>> tmp_in = dvk->Clone();
