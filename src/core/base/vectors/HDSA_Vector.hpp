@@ -51,6 +51,11 @@ namespace HDSA
     // Virtual functions that are only required for a subset of analyses
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+    virtual void Describe() const
+    {
+      std::cout << "The method HDSA::Vector::Describe has not been implemented for this vector type" << std::endl;
+    }
+
     virtual void Write_to_File(const std::string &name) const
     {
       (void) name;

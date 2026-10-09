@@ -96,6 +96,13 @@ namespace HDSA
       }
     }
 
+    void Describe() const override
+    {
+      auto out = Teuchos::getFancyOStream(Teuchos::rcpFromRef(std::cout));
+      tpetra_vec_->getMap()->describe(*out, Teuchos::VERB_EXTREME);
+      tpetra_vec_->describe(*out, Teuchos::VERB_EXTREME);
+    }
+
     void Write_to_File(const std::string &name) const override
     {
       Tpetra::MatrixMarket::Writer<Tpetra::CrsMatrix<>> vecWriter;
