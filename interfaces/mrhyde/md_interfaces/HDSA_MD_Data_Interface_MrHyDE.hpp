@@ -20,7 +20,6 @@
 #include "Tpetra_Map.hpp"
 #include "Tpetra_MultiVector.hpp"
 
-
 template <class RealT, class LO = Tpetra::Map<>::local_ordinal_type, class GO = Tpetra::Map<>::global_ordinal_type, class Node = Tpetra::Map<>::node_type>
 class MD_Data_Interface_MrHyDE : public HDSA::MD_Data_Interface<RealT>
 {
@@ -43,6 +42,10 @@ class MD_Data_Interface_MrHyDE : public HDSA::MD_Data_Interface<RealT>
     std::string opt_solution_txt_file_z_;
     std::vector<std::string> hifi_txt_files_u_;
     std::vector<std::string> txt_files_z_;
+
+    std::vector<std::pair<int, Teuchos::RCP<Tpetra::Map<LO, GO, SolverNode>>>> subMaps_;
+    std::vector<Teuchos::RCP<Tpetra::Export<LO, GO, SolverNode>>> subExport_;
+    std::vector<Teuchos::RCP<Tpetra::Import<LO, GO, SolverNode>>> subImport_;
 
   public:
     MD_Data_Interface_MrHyDE(Teuchos::RCP<Teuchos::MpiComm<int>> &comm, Teuchos::RCP<MrHyDE::SolverManager<SolverNode>> &solve, HDSA::Ptr<MrHyDE::ParameterManager<SolverNode>> &params,
@@ -70,6 +73,15 @@ class MD_Data_Interface_MrHyDE : public HDSA::MD_Data_Interface<RealT>
 
             hifi_txt_files_u_[k] = data_load_list_.get<std::string>("HifiTxtFileU" + std::to_string(k + 1), "error");
             txt_files_z_[k] = data_load_list_.get<std::string>("TxtFileZ" + std::to_string(k + 1), "error");
+        }
+
+        int num_states = solve_->varlist[0][0].size();
+        if( num_states > 1 )
+        {
+          Teuchos::RCP<const Tpetra::Map<LO, GO, SolverNode>> map = solve_->linalg->getNewVector(0)->getMap();
+          std::vector<int> vec(num_states, 1);
+          Teko::TpetraHelpers::Strided::buildSubMaps(*map, vec, *comm_, subMaps_);
+          Teko::TpetraHelpers::Strided::buildExportImport(*map, subMaps_, subExport_, subImport_);
         }
     }
 
@@ -325,19 +337,10 @@ class MD_Data_Interface_MrHyDE : public HDSA::MD_Data_Interface<RealT>
         {
             const HDSA::Tpetra_Vector<RealT> &eu = dynamic_cast<const HDSA::Tpetra_Vector<RealT> &>(u);
             HDSA::Ptr<Tpetra::MultiVector<RealT>> eu_tpetra = eu.getVector();
-            Teuchos::RCP<const Tpetra::Map<LO, GO, SolverNode>> map = eu_tpetra->getMap();
-
-            std::vector<std::pair<int, Teuchos::RCP<Tpetra::Map<LO, GO, SolverNode>>>> subMaps;
-            std::vector<int> vec(num_states, 1);
-            Teko::TpetraHelpers::Strided::buildSubMaps(*map, vec, *comm_, subMaps);
-
-            std::vector<RCP<Tpetra::Export<LO, GO, SolverNode>>> subExport;
-            std::vector<RCP<Tpetra::Import<LO, GO, SolverNode>>> subImport;
-            Teko::TpetraHelpers::Strided::buildExportImport(*map, subMaps, subExport, subImport);
 
             std::vector<RCP<Tpetra::MultiVector<RealT, LO, GO, SolverNode>>> subVectors;
-            Teko::TpetraHelpers::Strided::buildSubVectors(subMaps, subVectors, 1);
-            Teko::TpetraHelpers::Strided::one2many(subVectors, *eu_tpetra, subImport);
+            Teko::TpetraHelpers::Strided::buildSubVectors(subMaps_, subVectors, 1);
+            Teko::TpetraHelpers::Strided::one2many(subVectors, *eu_tpetra, subImport_);
 
             u_component = HDSA::makePtr<HDSA::Tpetra_Vector<RealT>>(subVectors[component_id], random_number_generator_);
         }
@@ -358,28 +361,16 @@ class MD_Data_Interface_MrHyDE : public HDSA::MD_Data_Interface<RealT>
             HDSA::Ptr<Tpetra::MultiVector<RealT>> eu_tpetra = u_tpetra.getVector();
             HDSA::Ptr<Tpetra::MultiVector<RealT>> eu_component_tpetra = u_component_tpetra.getVector();
 
-            Teuchos::RCP<const Tpetra::Map<LO, GO, SolverNode>> map = eu_tpetra->getMap();
-            GO size = eu_tpetra->getGlobalLength();
-
-            std::vector<std::pair<int, Teuchos::RCP<Tpetra::Map<LO, GO, SolverNode>>>> subMaps;
-            std::vector<int> vec(num_states, 1);
-            Teko::TpetraHelpers::Strided::buildSubMaps(size, vec, *comm_, subMaps);
-
-            std::vector<RCP<Tpetra::Export<LO, GO, SolverNode>>> subExport;
-            std::vector<RCP<Tpetra::Import<LO, GO, SolverNode>>> subImport;
-            Teko::TpetraHelpers::Strided::buildExportImport(*map, subMaps, subExport, subImport);
-
             std::vector<RCP<Tpetra::MultiVector<RealT, LO, GO, SolverNode>>> subVectors;
-            Teko::TpetraHelpers::Strided::buildSubVectors(subMaps, subVectors, 1);
-            Teko::TpetraHelpers::Strided::one2many(subVectors, *eu_tpetra, subImport);
+            Teko::TpetraHelpers::Strided::buildSubVectors(subMaps_, subVectors, 1);
+            Teko::TpetraHelpers::Strided::one2many(subVectors, *eu_tpetra, subImport_);
 
             subVectors[component_id]->assign(*eu_component_tpetra);
-
             std::vector<RCP<const Tpetra::MultiVector<RealT, LO, GO, SolverNode>>> cSubVectors;
             for (auto itr = subVectors.begin(); itr != subVectors.end(); ++itr)
                 cSubVectors.push_back(*itr);
 
-            Teko::TpetraHelpers::Strided::many2one(*eu_tpetra, cSubVectors, subExport);
+            Teko::TpetraHelpers::Strided::many2one(*eu_tpetra, cSubVectors, subExport_);
         }
     }
 
